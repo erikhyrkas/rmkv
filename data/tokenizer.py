@@ -52,5 +52,10 @@ class RemarkableTokenizer:
         return vocab.get("<pad>")
 
     @property
+    def end_of_response_id(self):
+        vocab = self.tokenizer.get_vocab()
+        return vocab.get("<end>")
+
+    @property
     def vocab_size_actual(self):
         return self.tokenizer.get_vocab_size()

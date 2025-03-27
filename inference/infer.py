@@ -32,8 +32,7 @@ def generate_text(model, tokenizer, prompt, device, max_length=100):
             # Greedy decoding: choose the token with the highest logit.
             next_token = torch.argmax(next_token_logits, dim=-1).unsqueeze(0)
             generated = torch.cat([generated, next_token], dim=1)
-            # Assume token ID 0 is the end-of-sequence marker.
-            if next_token.item() == 0:
+            if next_token.item() == tokenizer.end_of_response_id:
                 break
 
     # Decode the generated token IDs back into a string.
