@@ -82,10 +82,3 @@ class InstructionDataset(Dataset):
         token_ids = self.samples[idx]
         sample = {"input_ids": torch.tensor(token_ids, dtype=torch.long)}
         return sample
-
-
-if __name__ == "__main__":
-    dataset = InstructionDataset()
-    print(f"Loaded {len(dataset)} instruction samples from {len(dataset.file_paths)} files.")
-    # Print tokenized version of the first sample.
-    print(dataset[0])

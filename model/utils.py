@@ -29,18 +29,3 @@ def count_parameters(model):
         int: Total number of trainable parameters.
     """
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-
-if __name__ == "__main__":
-    # Quick test using the RMKVModel.
-    from model.rmkv import RMKVModel
-    from config import MODEL_CONFIG
-
-    vocab_size = 10000  # Dummy vocab size for testing.
-    model = RMKVModel(vocab_size, model_config=MODEL_CONFIG)
-
-    # Initialize weights
-    model.apply(init_weights)
-
-    total_params = count_parameters(model)
-    print(f"Total trainable parameters in RMKVModel: {total_params}")

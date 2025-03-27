@@ -1,5 +1,5 @@
 /.venv/
 /checkpoints/
 /logs/
-/training_data/
+/training_data*/
 /.idea/

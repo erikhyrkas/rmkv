@@ -17,10 +17,10 @@ MODEL_CONFIG = {
 
 # === Training Configuration ===
 TRAINING_CONFIG = {
-    "learning_rate": 1e-4,
+    "learning_rate": 1e-5,
     "batch_size": 8,                    # Adjust to fit within the RTX 5000 memory limits
     "weight_decay": 1e-2,
-    "num_epochs": 10,
+    "num_epochs": 3,
     "gradient_accumulation_steps": 4,   # Simulate larger batch sizes if needed
     "warmup_steps": 1000,               # Number of warmup steps for the learning rate scheduler
     "max_grad_norm": 1.0,               # For gradient clipping
@@ -42,15 +42,14 @@ PATHS = {
     "data_dir": os.path.join(os.getcwd(), "training_data"),
     "checkpoint_dir": os.path.join(os.getcwd(), "checkpoints"),
     "logs_dir": os.path.join(os.getcwd(), "logs"),
-    "tokenizer_dir": os.path.join(os.getcwd()),
+    "tokenizer_dir": os.path.join(os.getcwd(), "checkpoints"),
 }
 
 def create_dirs():
     """Create necessary directories if they do not exist."""
-    print("Creating directories...")
+    print("Confirming directories...")
     for key, path in PATHS.items():
         os.makedirs(path, exist_ok=True)
-    print("Directories created successfully.")
 
 if __name__ == "__main__":
     create_dirs()

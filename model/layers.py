@@ -101,24 +101,3 @@ class QKVBlock(nn.Module):
         attn_output = attn_output.transpose(1, 2).contiguous().view(batch_size, seq_length, embed_dim)
         output = self.out_proj(attn_output)
         return output
-
-if __name__ == "__main__":
-    # Quick tests for the layers with dummy inputs
-    batch_size = 2
-    seq_length = 10
-    embed_dim = MODEL_CONFIG["embed_dim"]
-    num_heads = MODEL_CONFIG["num_heads"]
-
-    # Test QKVBlock
-    dummy_input = torch.randn(batch_size, seq_length, embed_dim)
-    qkv_block = QKVBlock(embed_dim, num_heads)
-    output = qkv_block(dummy_input)
-    print("QKVBlock output shape:", output.shape)
-
-    # Test RecurrentMemoryCell
-    cell_type = MODEL_CONFIG["rnn_cell_type"]
-    rec_cell = RecurrentMemoryCell(hidden_dim=embed_dim, cell_type=cell_type)
-    dummy_memory = torch.randn(batch_size, embed_dim)
-    dummy_info = torch.randn(batch_size, embed_dim)
-    updated_memory = rec_cell(dummy_memory, dummy_info)
-    print("Updated memory shape:", updated_memory.shape if cell_type.upper() == "GRU" else "LSTM tuple")

@@ -28,20 +28,3 @@ def get_scheduler(optimizer, total_steps):
     return scheduler
 
 
-if __name__ == "__main__":
-    # Dummy test for the scheduler
-    import torch
-    from config import TRAINING_CONFIG
-
-    # Create a dummy optimizer
-    dummy_params = [torch.nn.Parameter(torch.randn(10, 10))]
-    optimizer = torch.optim.Adam(dummy_params, lr=TRAINING_CONFIG["learning_rate"])
-
-    # Assume 100 total steps for this example.
-    total_steps = 100
-    scheduler = get_scheduler(optimizer, total_steps)
-
-    # Print the learning rate for the first 5 steps.
-    for step in range(5):
-        print(f"Step {step}: LR = {optimizer.param_groups[0]['lr']}")
-        scheduler.step()

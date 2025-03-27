@@ -3,9 +3,27 @@
 import argparse
 import os
 import torch
-from config import PATHS, TRAINING_CONFIG, create_dirs
+from config import PATHS, create_dirs
 from model.rmkv import RMKVModel
+import glob
 
+def remove_files_by_pattern(directory, pattern):
+    """
+    Removes files in a directory that match a specified pattern.
+
+    Args:
+        directory (str): The path to the directory containing the files.
+        pattern (str): The pattern to match (e.g., "*.txt", "file_*.log").
+    """
+    try:
+        files_to_remove = glob.glob(os.path.join(directory, pattern))
+        for file_path in files_to_remove:
+            os.remove(file_path)
+            print(f"Removed file: {file_path}")
+    except FileNotFoundError:
+        print(f"Error: Directory not found: {directory}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 def main():
     create_dirs()
@@ -41,22 +59,32 @@ def main():
 
         # load from a checkpoint to resume training.
         if args.checkpoint:
-            from training.checkpoint import load_checkpoint
-            dummy_optimizer = torch.optim.Adam(model.parameters(), lr=TRAINING_CONFIG["learning_rate"])
-            start_epoch = load_checkpoint(model, dummy_optimizer, args.checkpoint, device)
-            trainer.start_epoch = start_epoch
+            target_checkpoint = args.checkpoint
+        else:
+            target_checkpoint = os.path.join(PATHS["checkpoint_dir"], "rmkv_latest.pt")
+            if os.path.exists(target_checkpoint):
+                resume = input("Resume training? (Y, n)")
+                if resume == "n":
+                    # remove all files named 'rmkv_*.pt' to clean
+                    remove_files_by_pattern(PATHS["checkpoint_dir"], "rmkv_*.pt")
+
+        from training.checkpoint import load_from_checkpoint
+        if not load_from_checkpoint(target_checkpoint, model, device, trainer):
+            print("Training from scratch")
 
         trainer.train()
 
     elif args.mode == "infer":
-        if not args.checkpoint:
-            raise ValueError("A checkpoint path must be provided for inference mode.")
-
         model = RMKVModel(args.vocab_size).to(device)
-        # Dummy optimizer for checkpoint loading (optimizer state is not used during inference)
-        dummy_optimizer = torch.optim.Adam(model.parameters(), lr=0)
-        from training.checkpoint import load_checkpoint
-        load_checkpoint(model, dummy_optimizer, args.checkpoint, device)
+
+        if not args.checkpoint:
+            target_checkpoint = os.path.join(PATHS["checkpoint_dir"], "rmkv_latest.pt")
+        else:
+            target_checkpoint = args.checkpoint
+
+        from training.checkpoint import load_from_checkpoint
+        if not load_from_checkpoint(target_checkpoint, model, device):
+            raise ValueError(f"No checkpoint found at {target_checkpoint}")
 
         from data.tokenizer import RemarkableTokenizer
         tokenizer = RemarkableTokenizer(load_path=os.path.join(PATHS["tokenizer_dir"], "tokenizer.json"))

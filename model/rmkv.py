@@ -65,6 +65,13 @@ class RMKVBlock(nn.Module):
 
         return new_x, updated_memory
 
+def get_sinusoidal_encoding(seq_len, dim):
+    position = torch.arange(seq_len).unsqueeze(1)
+    div_term = torch.exp(torch.arange(0, dim, 2) * -(torch.log(torch.tensor(10000.0)) / dim))
+    pe = torch.zeros(seq_len, dim)
+    pe[:, 0::2] = torch.sin(position * div_term)
+    pe[:, 1::2] = torch.cos(position * div_term)
+    return pe.unsqueeze(0)  # shape (1, seq_len, dim)
 
 class RMKVModel(nn.Module):
     """
@@ -82,6 +89,7 @@ class RMKVModel(nn.Module):
         # Positional embeddings (learned) for token positions up to max_seq_len.
         self.pos_embed = nn.Parameter(torch.zeros(1, model_config["max_seq_len"], embed_dim))
         nn.init.trunc_normal_(self.pos_embed, std=0.02)
+        # self.register_buffer("pos_embed", get_sinusoidal_encoding(model_config["max_seq_len"], embed_dim))
 
         self.memory_tokens = model_config["memory_tokens"]
         # Learned initial memory tokens (shared across the batch).
@@ -118,6 +126,7 @@ class RMKVModel(nn.Module):
         # Embed tokens and add positional embeddings.
         token_embeddings = self.token_embed(input_ids)  # (batch, seq_len, embed_dim)
         pos_embeddings = self.pos_embed[:, :seq_len, :]
+        # pos_embeddings = self.pos_embed[:, :seq_len, :].to(input_ids.device)
         x = token_embeddings + pos_embeddings
 
         # Initialize memory for each sample (broadcast the initial memory).
@@ -128,17 +137,12 @@ class RMKVModel(nn.Module):
             x, memory = layer(x, memory)
 
         x = self.ln_final(x)
+        # with torch.no_grad():
+        #     activation_norm = x.norm(dim=-1).mean().item()
+        #     print(f"[Debug] Activation norm: {activation_norm:.4f}")
+
         logits = self.head(x)
+        # with torch.no_grad():
+        #     mem_norm = memory.norm(dim=-1).mean().item()
+        #     print(f"[Debug] Memory Norm: {mem_norm:.4f}")
         return logits
-
-
-if __name__ == "__main__":
-    # Quick test of the RMKV model with dummy inputs.
-    batch_size = 2
-    seq_len = 128
-    vocab_size = 10000
-    dummy_input = torch.randint(0, vocab_size, (batch_size, seq_len))
-
-    model = RMKVModel(vocab_size)
-    logits = model(dummy_input)
-    print("Logits shape:", logits.shape)  # Expected shape: (batch_size, seq_len, vocab_size)

@@ -1,7 +1,7 @@
 import os
 from tokenizers import Tokenizer
 from tokenizers.models import BPE
-from tokenizers.pre_tokenizers import Whitespace
+from tokenizers.pre_tokenizers import ByteLevel
 from tokenizers.decoders import BPEDecoder
 from tokenizers.processors import TemplateProcessing
 from config import PATHS
@@ -22,7 +22,7 @@ class RemarkableTokenizer:
             self.special_tokens = special_tokens
 
             self.tokenizer = Tokenizer(BPE(unk_token="<unk>"))
-            self.tokenizer.pre_tokenizer = Whitespace()
+            self.tokenizer.pre_tokenizer = ByteLevel()
             self.tokenizer.decoder = BPEDecoder()
             self.tokenizer.post_processor = TemplateProcessing(
                 single="$A",
@@ -44,7 +44,7 @@ class RemarkableTokenizer:
         return encoding.ids
 
     def decode(self, token_ids):
-        return self.tokenizer.decode(token_ids)
+        return self.tokenizer.decode(token_ids).replace("Ġ", " ").lstrip()
 
     @property
     def pad_token_id(self):
@@ -54,21 +54,3 @@ class RemarkableTokenizer:
     @property
     def vocab_size_actual(self):
         return self.tokenizer.get_vocab_size()
-
-
-if __name__ == "__main__":
-    # Example usage for loading a trained tokenizer:
-    tokenizer_save_path = os.path.join(PATHS["tokenizer_dir"], "tokenizer.json")
-
-    # To load an existing tokenizer:
-    tokenizer = RemarkableTokenizer(load_path=tokenizer_save_path)
-
-    sample_text = "<think> What is a frog? </think> <start> An amphibian. <end>"
-    encoded = tokenizer.encode(sample_text)
-    decoded = tokenizer.decode(encoded)
-
-    print("Original Text:", sample_text)
-    print("Encoded Tokens:", encoded)
-    print("Decoded Text:", decoded)
-    print("Pad Token ID:", tokenizer.pad_token_id)
-    print("Vocabulary Size:", tokenizer.vocab_size_actual)
