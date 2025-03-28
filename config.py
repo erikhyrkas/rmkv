@@ -19,11 +19,12 @@ TRAINING_CONFIG = {
     "learning_rate": 1e-5,
     "batch_size": 8,                    # Adjust to fit within the RTX 5000 memory limits
     "weight_decay": 1e-2,
-    "num_epochs": 3,
+    "num_epochs": 20,
     "gradient_accumulation_steps": 4,   # Simulate larger batch sizes if needed
     "warmup_steps": 1000,               # Number of warmup steps for the learning rate scheduler
     "max_grad_norm": 1.0,               # For gradient clipping
     "fp16": True,                       # Enable mixed precision training
+    "use_sincos": True,                 # use sin/cos based positional embedding
     "seed": 42,
 }
 

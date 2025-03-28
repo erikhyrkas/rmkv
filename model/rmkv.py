@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 from config import MODEL_CONFIG
 from model.layers import QKVBlock, RecurrentMemoryCell
+from model.rmkv2 import get_causal_mask
 
 
 class RMKVBlock(nn.Module):
@@ -43,8 +44,10 @@ class RMKVBlock(nn.Module):
         combined = torch.cat([memory, x], dim=1)  # (batch, memory_tokens + seq_len, embed_dim)
         combined = self.ln(combined)
 
+        mask = get_causal_mask(self.memory_tokens, seq_len, combined.device)  # shape: (1, 1, total, total)
+
         # 2. Process with the QKV block.
-        out = self.qkv_block(combined)
+        out = self.qkv_block(combined, mask=mask)
         out = self.dropout(out)
 
         # 3. Split the output: first part for memory, remainder for tokens.

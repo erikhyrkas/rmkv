@@ -2,7 +2,7 @@ import os
 import argparse
 import torch
 from config import PATHS, create_dirs, TRAINING_CONFIG
-from model.rmkv import RMKVModel
+from model.rmkv2 import RMKVModel2
 from data.dataset import InstructionDataset
 from training.trainer import Trainer
 from training.checkpoint import load_from_checkpoint
@@ -30,7 +30,7 @@ def main():
     from data.tokenizer import RemarkableTokenizer
     tokenizer = RemarkableTokenizer(load_path=os.path.join(PATHS["tokenizer_dir"], "tokenizer.json"))
 
-    model = RMKVModel(tokenizer.vocab_size_actual).to(device)
+    model = RMKVModel2(tokenizer.vocab_size_actual).to(device)
     trainer = Trainer(model, train_dataset, device)
 
     checkpoint_path = args.checkpoint or os.path.join(PATHS["checkpoint_dir"], "rmkv_latest.pt")

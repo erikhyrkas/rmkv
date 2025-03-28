@@ -2,7 +2,7 @@ import os
 import argparse
 import torch
 from config import PATHS
-from model.rmkv import RMKVModel
+from model.rmkv2 import RMKVModel2
 from data.tokenizer import RemarkableTokenizer
 from inference.infer import generate_text
 from training.checkpoint import load_from_checkpoint
@@ -18,7 +18,7 @@ def main():
 
     tokenizer = RemarkableTokenizer(load_path=os.path.join(PATHS["tokenizer_dir"], "tokenizer.json"))
 
-    model = RMKVModel(tokenizer.vocab_size_actual).to(device)
+    model = RMKVModel2(tokenizer.vocab_size_actual).to(device)
 
     checkpoint_path = args.checkpoint or os.path.join(PATHS["checkpoint_dir"], "rmkv_latest.pt")
     if not load_from_checkpoint(checkpoint_path, model, device):
