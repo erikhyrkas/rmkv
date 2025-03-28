@@ -109,6 +109,10 @@ class RMKVModel(nn.Module):
         self.ln_final = nn.LayerNorm(embed_dim)
         self.head = nn.Linear(embed_dim, vocab_size, bias=False)
 
+    def count_parameters(self):
+        total_params = sum(p.numel() for p in self.parameters())
+        return total_params
+
     def forward(self, input_ids):
         """
         Args:

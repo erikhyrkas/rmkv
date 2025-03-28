@@ -24,6 +24,9 @@ def main():
     if not load_from_checkpoint(checkpoint_path, model, device):
         raise FileNotFoundError(f"No checkpoint found at {checkpoint_path}")
 
+    params = model.count_parameters()
+    print(f"Number of parameters: {params:,}")
+
     if len(args.prompt) > 0:
         output_text = generate_text(model, tokenizer, args.prompt, device, args.max_length)
 

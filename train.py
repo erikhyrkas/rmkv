@@ -1,7 +1,7 @@
 import os
 import argparse
 import torch
-from config import PATHS, create_dirs
+from config import PATHS, create_dirs, TRAINING_CONFIG
 from model.rmkv import RMKVModel
 from data.dataset import InstructionDataset
 from training.trainer import Trainer
@@ -36,12 +36,20 @@ def main():
     checkpoint_path = args.checkpoint or os.path.join(PATHS["checkpoint_dir"], "rmkv_latest.pt")
 
     if not args.checkpoint and os.path.exists(checkpoint_path):
-        resume = input("Resume training? (Y/n) ").lower()
+        num_epochs = TRAINING_CONFIG['num_epochs']
+        if not os.path.exists(os.path.join(PATHS["checkpoint_dir"], f"rmkv_{num_epochs}.pt")):
+            print("Restarting training from scratch.")
+            resume = "n"
+        else:
+            resume = input("Resume training? (Y/n) ").lower()
         if resume == "n":
             remove_files_by_pattern(PATHS["checkpoint_dir"], "rmkv_*.pt")
 
     if not load_from_checkpoint(checkpoint_path, model, device, trainer):
         print("Training from scratch")
+
+    params = model.count_parameters()
+    print(f"Number of parameters: {params:,}")
 
     trainer.train()
 

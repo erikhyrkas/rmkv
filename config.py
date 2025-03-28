@@ -6,8 +6,7 @@ import os
 MODEL_CONFIG = {
     "model_name": "RMKV",
     "num_layers": 12,         # Number of layers in the model
-    "hidden_dim": 768,        # Hidden dimension size (used in both embeddings and intermediate states)
-    "embed_dim": 768,         # Token embedding dimension
+    "embed_dim": 2048,        # Token embedding dimension
     "num_heads": 8,           # Number of attention (or QKV-inspired) heads
     "dropout": 0.1,           # Dropout probability
     "max_seq_len": 1024,      # Maximum sequence length per segment
