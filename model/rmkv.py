@@ -20,30 +20,64 @@ def get_sinusoidal_encoding(seq_len, dim):
 # -----------------------------------------------------------------------------
 # Utility: Create a causal mask for the combined sequence (memory + tokens)
 # -----------------------------------------------------------------------------
-def get_causal_mask(memory_tokens, seq_len, device):
+def get_causal_mask(memory_tokens, seq_len, attention_mask=None, device=None):
     """
     Returns a causal mask for a combined sequence of length (memory_tokens + seq_len).
     Memory tokens (indices [0, memory_tokens)) are unmasked.
     For token rows (indices [memory_tokens, memory_tokens+seq_len)),
     keys corresponding to future tokens (in the token part) are masked.
-    The mask is of shape (memory_tokens+seq_len, memory_tokens+seq_len) and can be added
-    to attention scores.
+
+    Args:
+        memory_tokens: Number of memory tokens
+        seq_len: Number of sequence tokens
+        attention_mask: Optional (batch, seq_len) tensor with 1s for valid tokens and 0s for padding
+        device: Device for the mask
+
+    Returns:
+        A mask of shape (batch, 1, memory_tokens+seq_len, memory_tokens+seq_len) that can be added
+        to attention scores.
     """
     total_len = memory_tokens + seq_len
-    # Start with an all-zero mask.
-    mask = torch.zeros(total_len, total_len, device=device)
 
-    # For rows corresponding to current tokens.
-    # Create a lower triangular mask for the token part.
-    # token_mask = torch.triu(torch.ones(seq_len, seq_len, device=device), diagonal=1)
-    # token_mask = token_mask * float('-inf')
+    if device is None and attention_mask is not None:
+        device = attention_mask.device
+
+    batch_size = 1
+    if attention_mask is not None:
+        batch_size = attention_mask.size(0)
+
+    # Start with an all-zero mask
+    mask = torch.zeros(batch_size, total_len, total_len, device=device)
+
+    # Add causal masking for the token part
     token_mask = torch.triu(torch.ones(seq_len, seq_len, device=device), diagonal=1) * (-1e9)
+    mask[:, memory_tokens:, memory_tokens:] = token_mask
 
-    # For each token row, allowed keys:
-    #   All memory tokens (first memory_tokens columns) are allowed.
-    #   For token columns (the rest), allow only up to the current token.
-    mask[memory_tokens:, memory_tokens:] = token_mask
-    return mask.unsqueeze(0).unsqueeze(0)  # shape: (1, 1, total_len, total_len)
+    # Incorporate attention_mask if provided
+    if attention_mask is not None:
+        # Create the padding mask for the combined sequence
+        # Memory tokens are always valid
+        combined_mask = torch.ones(batch_size, total_len, device=device)
+        # Set the token validity based on the attention_mask
+        combined_mask[:, memory_tokens:] = attention_mask
+
+        # Expand padding mask to full attention matrix:
+        # For each position (row), if that position is padding (0 in attention_mask),
+        # it shouldn't attend to anything (doesn't matter)
+        # For each key (column), if that position is padding (0 in attention_mask),
+        # no position should attend to it
+        padding_mask = combined_mask.unsqueeze(1) * combined_mask.unsqueeze(2)
+
+        # Convert 0s to -inf to mask out in the softmax
+        padding_mask = padding_mask.masked_fill(padding_mask == 0, -1e9)
+
+        # 1s should have no effect on the existing mask
+        padding_mask = padding_mask.masked_fill(padding_mask == 1, 0)
+
+        # Combine with the causal mask
+        mask = mask + padding_mask
+
+    return mask.unsqueeze(1)  # shape: (batch, 1, total_len, total_len)
 
 
 # -----------------------------------------------------------------------------
@@ -80,29 +114,40 @@ class MinimalRNNCell(nn.Module):
         new_h = h * gate + (1 - gate) * candidate
         return new_h
 
+
 # -----------------------------------------------------------------------------
-# Attention-based Pooling Module (Version 2)
+# Attention-based Pooling Module
 # -----------------------------------------------------------------------------
-class AttentionPooling2(nn.Module):
+class AttentionPooling(nn.Module):
     """
     Uses a set of learnable query vectors (one per memory slot) to attend over the token outputs.
     Produces a weighted summary for each memory token.
     """
 
     def __init__(self, embed_dim, memory_tokens):
-        super(AttentionPooling2, self).__init__()
+        super(AttentionPooling, self).__init__()
         self.memory_tokens = memory_tokens
         # Each memory slot gets its own learnable query.
         self.query = nn.Parameter(torch.randn(memory_tokens, embed_dim))
         self.scale = embed_dim ** -0.5
 
-    def forward(self, x):
+    def forward(self, x, attention_mask=None):
         # x: (batch, seq_len, embed_dim)
+        # attention_mask: (batch, seq_len) - optional mask for padding tokens
         batch_size = x.size(0)
         # Expand query to (batch, memory_tokens, embed_dim)
         query = self.query.unsqueeze(0).expand(batch_size, -1, -1)
         # Compute attention scores: (batch, memory_tokens, seq_len)
         scores = torch.bmm(query, x.transpose(1, 2)) * self.scale
+
+        # Apply attention mask if provided
+        if attention_mask is not None:
+            # Convert 0s to -inf, 1s to 0s
+            padding_mask = attention_mask.unsqueeze(1).float()  # (batch, 1, seq_len)
+            padding_mask = padding_mask.masked_fill(padding_mask == 0, -1e9)
+            padding_mask = padding_mask.masked_fill(padding_mask == 1, 0)
+            scores = scores + padding_mask
+
         weights = torch.softmax(scores, dim=-1)
         # Compute weighted sum: (batch, memory_tokens, embed_dim)
         summary = torch.bmm(weights, x)
@@ -110,9 +155,9 @@ class AttentionPooling2(nn.Module):
 
 
 # -----------------------------------------------------------------------------
-# Recurrent Memory Cell 2
+# Recurrent Memory Cell
 # -----------------------------------------------------------------------------
-class RecurrentMemoryCell2(nn.Module):
+class RecurrentMemoryCell(nn.Module):
     """
     Wraps several cell types (GRU, LSTM, or minimal) to update memory tokens.
     The interface always expects:
@@ -120,7 +165,7 @@ class RecurrentMemoryCell2(nn.Module):
     """
 
     def __init__(self, embed_dim, cell_type="GRU"):
-        super(RecurrentMemoryCell2, self).__init__()
+        super(RecurrentMemoryCell, self).__init__()
         self.cell_type = cell_type.lower()
         if self.cell_type == "gru":
             self.cell = nn.GRUCell(embed_dim, embed_dim)
@@ -145,13 +190,13 @@ class RecurrentMemoryCell2(nn.Module):
 # -----------------------------------------------------------------------------
 # QKV Block 2 with optional causal masking
 # -----------------------------------------------------------------------------
-class QKVBlock2(nn.Module):
+class QKVBlock(nn.Module):
     """
     A multi-head attention block that supports an optional attention mask.
     """
 
     def __init__(self, embed_dim, num_heads, dropout=0.1):
-        super(QKVBlock2, self).__init__()
+        super(QKVBlock, self).__init__()
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads
         self.scale = self.head_dim ** -0.5
@@ -163,6 +208,7 @@ class QKVBlock2(nn.Module):
 
     def forward(self, x, mask=None):
         # x: (batch, seq_len, embed_dim)
+        # mask: (batch, 1, seq_len, seq_len) - includes both causal and padding masks
         batch_size, seq_len, embed_dim = x.size()
         q = self.q_linear(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
         k = self.k_linear(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
@@ -171,7 +217,7 @@ class QKVBlock2(nn.Module):
         # Compute attention scores.
         scores = torch.matmul(q, k.transpose(-2, -1)) * self.scale  # (batch, heads, seq_len, seq_len)
 
-        # Apply causal mask if provided.
+        # Apply causal and padding masks if provided.
         if mask is not None:
             scores = scores + mask  # mask should broadcast to (batch, heads, seq_len, seq_len)
 
@@ -184,28 +230,29 @@ class QKVBlock2(nn.Module):
 
 
 # -----------------------------------------------------------------------------
-# RMKV Block 2 with causal masking integrated
+# RMKV Block with causal masking integrated
 # -----------------------------------------------------------------------------
-class RMKVBlock2(nn.Module):
+class RMKVBlock(nn.Module):
     """
-    Version 2 of the RMKV block.
-    Now incorporates causal masking in the QKV block.
+    RMKV block.
+    Now incorporates causal masking and padding mask in the QKV block.
     """
 
     def __init__(self, embed_dim, num_heads, memory_tokens, dropout=0.1, cell_type="GRU"):
-        super(RMKVBlock2, self).__init__()
+        super(RMKVBlock, self).__init__()
         self.memory_tokens = memory_tokens
-        self.qkv_block = QKVBlock2(embed_dim, num_heads, dropout)
+        self.qkv_block = QKVBlock(embed_dim, num_heads, dropout)
         self.ln = nn.LayerNorm(embed_dim)
         self.dropout = nn.Dropout(dropout)
-        self.attn_pool = AttentionPooling2(embed_dim, memory_tokens)
-        self.recurrent_cell = RecurrentMemoryCell2(embed_dim, cell_type=cell_type)
+        self.attn_pool = AttentionPooling(embed_dim, memory_tokens)
+        self.recurrent_cell = RecurrentMemoryCell(embed_dim, cell_type=cell_type)
 
-    def forward(self, x, memory):
+    def forward(self, x, memory, attention_mask=None):
         """
         Args:
           x: (batch, seq_len, embed_dim) token representations.
           memory: (batch, memory_tokens, embed_dim) memory tokens.
+          attention_mask: (batch, seq_len) tensor with 1s for valid tokens and 0s for padding.
         """
         batch_size, seq_len, _ = x.shape
 
@@ -213,9 +260,9 @@ class RMKVBlock2(nn.Module):
         combined = torch.cat([memory, x], dim=1)  # (batch, memory_tokens + seq_len, embed_dim)
         combined = self.ln(combined)
 
-        # 2. Create a causal mask for the combined sequence.
+        # 2. Create a causal mask for the combined sequence, incorporating the attention mask
         device = combined.device
-        mask = get_causal_mask(self.memory_tokens, seq_len, device)  # shape: (1, 1, total, total)
+        mask = get_causal_mask(self.memory_tokens, seq_len, attention_mask, device)
 
         # 3. Process with QKV block using the mask.
         out = self.qkv_block(combined, mask=mask)
@@ -226,7 +273,7 @@ class RMKVBlock2(nn.Module):
         new_x = out[:, self.memory_tokens:, :]  # (batch, seq_len, embed_dim)
 
         # 5. Use attention pooling over tokens to get summary per memory token.
-        summary = self.attn_pool(new_x)  # (batch, memory_tokens, embed_dim)
+        summary = self.attn_pool(new_x, attention_mask)  # (batch, memory_tokens, embed_dim)
 
         # 6. Update memory tokens with the recurrent cell.
         b, mt, d = updated_memory.shape
@@ -242,19 +289,20 @@ class RMKVBlock2(nn.Module):
 
 
 # -----------------------------------------------------------------------------
-# RMKV Model 2
+# RMKV Model
 # -----------------------------------------------------------------------------
-class RMKVModel2(nn.Module):
+class RMKVModel(nn.Module):
     """
-    Version 2 of the RMKVModel.
+    RMKVModel.
     Supports:
       - Option to use sin/cos positional embeddings (e.g. for sequences up to 128k tokens)
       - Stacking RMKVBlock2 layers for long-range context
       - Configurable recurrent cell type in RMKVBlock2 -- minimal rnn option
+      - Attention mask to handle padding tokens
     """
 
     def __init__(self, vocab_size, model_config=MODEL_CONFIG):
-        super(RMKVModel2, self).__init__()
+        super(RMKVModel, self).__init__()
         self.model_config = model_config
         embed_dim = model_config["embed_dim"]
 
@@ -275,7 +323,7 @@ class RMKVModel2(nn.Module):
 
         # Stack RMKVBlock2 layers.
         self.layers = nn.ModuleList([
-            RMKVBlock2(
+            RMKVBlock(
                 embed_dim=embed_dim,
                 num_heads=model_config["num_heads"],
                 memory_tokens=self.memory_tokens,
@@ -291,10 +339,11 @@ class RMKVModel2(nn.Module):
     def count_parameters(self):
         return sum(p.numel() for p in self.parameters())
 
-    def forward(self, input_ids):
+    def forward(self, input_ids, attention_mask=None):
         """
         Args:
           input_ids: (batch, seq_len) tensor of token indices.
+          attention_mask: (batch, seq_len) tensor with 1s for valid tokens and 0s for padding.
         Process:
           1. Compute token embeddings and add positional information.
           2. Initialize memory from learned initial_memory.
@@ -305,6 +354,10 @@ class RMKVModel2(nn.Module):
 
         token_embeddings = self.token_embed(input_ids)  # (batch, seq_len, embed_dim)
         pos_embeddings = self.pos_embed[:, :seq_len, :]
+
+        if isinstance(pos_embeddings, torch.Tensor) and pos_embeddings.device != token_embeddings.device:
+            pos_embeddings = pos_embeddings.to(token_embeddings.device)
+
         x = token_embeddings + pos_embeddings
 
         # Broadcast the initial memory for the batch.
@@ -312,8 +365,11 @@ class RMKVModel2(nn.Module):
 
         # Process through each RMKVBlock2.
         for layer in self.layers:
-            x, memory = layer(x, memory)
+            x, memory = layer(x, memory, attention_mask)
 
         x = self.ln_final(x)
+
+        # If we have an attention mask, we should only compute logits for valid tokens
         logits = self.head(x)
+
         return logits

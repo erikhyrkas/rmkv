@@ -3,3 +3,4 @@
 /logs/
 /training_data*/
 /.idea/
+*.log

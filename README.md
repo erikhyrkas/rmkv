@@ -25,9 +25,12 @@ remarkable_five/
 ├── train.py                    # train the model
 ├── train_tokenizer.py          # train the tokenizer
 ├── checkpoints/                
-│   ├── rmkv_epoch_*.py         # previous model checkpoints
-│   ├── rmkv_latest.py          # last model checkpoint
-│   └── tokenizer.json          # result of tokenizer training
+│   ├── rmkv_pretrain_epoch_*.pt    # Pretraining checkpoints
+│   ├── rmkv_finetune_epoch_*.pt    # Finetuning checkpoints
+│   ├── rmkv_pretrain_latest.pt     # Latest pretraining checkpoint
+│   ├── rmkv_finetune_latest.pt     # Latest finetuning checkpoint 
+│   ├── rmkv_latest.pt              # General latest checkpoint (backward compatibility)
+│   └── tokenizer.json              # result of tokenizer training
 ├── logs/                       
 │   └── out.log                 # trainining logs (todo)
 ├── training_data/              
@@ -78,9 +81,52 @@ Train tokenizer:
 python train_tokenizer.py
 ```
 
-To start training the RMKV model:
+#### Pretraining
+To start pretraining the RMKV model from scratch:
 ```bash
-python train.py
+python train.py --mode pretrain
+```
+
+To resume pretraining from the latest checkpoint:
+```bash
+python train.py --mode pretrain
+```
+(You'll be prompted to confirm if you want to resume)
+
+To restart pretraining from scratch (removing existing checkpoints):
+```bash
+python train.py --mode pretrain
+```
+(Answer 'Y' when prompted to restart)
+
+#### Finetuning
+To start finetuning after pretraining:
+```bash
+python train.py --mode finetune
+```
+This will automatically use the latest pretraining checkpoint.
+
+To specify a particular checkpoint for finetuning:
+```bash
+python train.py --mode finetune --checkpoint checkpoints/rmkv_pretrain_epoch_10.pt
+```
+
+To continue finetuning from a previous finetuning run:
+```bash
+python train.py --mode finetune
+```
+(You'll be prompted to confirm if you want to resume)
+
+To reset epoch counting when loading a checkpoint:
+```bash
+python train.py --mode finetune --checkpoint checkpoints/rmkv_pretrain_latest.pt --reset_epochs
+```
+
+#### Using Custom Data Directories
+To specify a custom data directory:
+```bash
+python train.py --mode pretrain --data_dir /path/to/pretrain_data
+python train.py --mode finetune --data_dir /path/to/finetune_data
 ```
 
 ### Inference
@@ -88,6 +134,14 @@ To generate text with a trained model:
 ```bash
 python complete.py [--checkpoint <path_to_checkpoint>] [--prompt "hello world"] [--max_length=100]
 ```
+
+## Training Configuration
+The model uses different configurations for pretraining and finetuning:
+
+- **Pretraining**: Higher learning rate, larger batch size, more epochs
+- **Finetuning**: Lower learning rate, smaller batch size, fewer epochs, stricter gradient clipping
+
+These configurations can be adjusted in `config.py`.
 
 ## Contributing
 
@@ -98,4 +152,3 @@ Contributions are welcome! Please open an issue or submit a pull request if you 
 MIT
 
 ---
-

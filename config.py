@@ -14,19 +14,36 @@ MODEL_CONFIG = {
     "rnn_cell_type": "GRU",   # Type of recurrent cell for memory updates (e.g., "GRU", "LSTM")
 }
 
-# === Training Configuration ===
-TRAINING_CONFIG = {
-    "learning_rate": 1e-5,
-    "batch_size": 8,                    # Adjust to fit within the RTX 5000 memory limits
+# === Pretraining Configuration ===
+PRETRAIN_CONFIG = {
+    "learning_rate": 1e-4,
+    "batch_size": 8,
     "weight_decay": 1e-2,
-    "num_epochs": 20,
-    "gradient_accumulation_steps": 4,   # Simulate larger batch sizes if needed
+    "num_epochs": 10,
+    "gradient_accumulation_steps": 4,   # Simulate larger batch sizes
     "warmup_steps": 1000,               # Number of warmup steps for the learning rate scheduler
     "max_grad_norm": 1.0,               # For gradient clipping
     "fp16": True,                       # Enable mixed precision training
     "use_sincos": True,                 # use sin/cos based positional embedding
     "seed": 42,
 }
+
+# === Finetuning Configuration ===
+FINETUNE_CONFIG = {
+    "learning_rate": 5e-5,              # Lower learning rate for finetuning
+    "batch_size": 4,                    # Smaller batch size for more precise updates
+    "weight_decay": 1e-2,
+    "num_epochs": 5,                    # Fewer epochs for finetuning
+    "gradient_accumulation_steps": 4,
+    "warmup_steps": 200,                # Fewer warmup steps for finetuning
+    "max_grad_norm": 0.5,               # Stricter gradient clipping for stability
+    "fp16": True,
+    "use_sincos": True,
+    "seed": 42,
+}
+
+# Keep backward compatibility
+TRAINING_CONFIG = PRETRAIN_CONFIG.copy()
 
 # === Optimizer and Scheduler Settings ===
 OPTIMIZER_CONFIG = {
@@ -50,6 +67,3 @@ def create_dirs():
     print("Confirming directories...")
     for key, path in PATHS.items():
         os.makedirs(path, exist_ok=True)
-
-if __name__ == "__main__":
-    create_dirs()
