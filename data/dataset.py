@@ -162,10 +162,10 @@ class InstructionDataset(Dataset):
             token_ids = sample_data["token_ids"]
             attention_length = sample_data["attention_length"]
 
-            # Create attention mask (1s for tokens, 0s for padding)
-            attention_mask = [1] * attention_length
+            # Create attention mask (-1e9 for padding, 0 for tokens) - OPTIMIZED
+            attention_mask = [0] * attention_length
             if attention_length < self.max_seq_len:
-                attention_mask.extend([0] * (self.max_seq_len - attention_length))
+                attention_mask.extend([-1e9] * (self.max_seq_len - attention_length))
 
             # Store the attention mask
             self.attention_masks.append(attention_mask)
@@ -175,8 +175,6 @@ class InstructionDataset(Dataset):
 
         # Replace the samples with the token_ids only
         self.samples = processed_samples
-
-        print(f"Pre-computed {len(self.attention_masks)} attention masks.")
 
     def __len__(self):
         return len(self.samples)
@@ -190,9 +188,9 @@ class InstructionDataset(Dataset):
             "attention_mask": torch.tensor(attention_mask, dtype=torch.long)
         }
 
-class EfficientPackedDataset(Dataset):
+class PretrainingDataset(Dataset):
     """
-    A more efficient variant of the PretrainingDataset that eliminates all padding
+    A more efficient variant of the original PretrainingDataset that eliminates all padding
     by dynamically packing tokens across file boundaries.
 
     This implementation:
@@ -209,14 +207,16 @@ class EfficientPackedDataset(Dataset):
             cache_dir=None,
             doc_separator_token="<doc>",
             shuffle_chunks=True,
+            use_attention_masks=False,
     ):
         # Basic initialization
         self.data_dir = data_dir or PATHS["data_dir"]
         self.seq_len = seq_len
         self.doc_separator_token = doc_separator_token
         self.shuffle_chunks = shuffle_chunks
+        self.use_attention_masks = use_attention_masks
 
-        # Set up cache directory
+        # Set up cache directory - use a 'cache' subfolder in the data directory if not specified
         self.cache_dir = cache_dir or os.path.join(self.data_dir, 'cache')
         os.makedirs(self.cache_dir, exist_ok=True)
 
@@ -242,7 +242,12 @@ class EfficientPackedDataset(Dataset):
             raise ValueError(f"No training files found in directory {self.data_dir}.")
 
         # Load packed chunks and masks, using cache if available
-        self.chunks, self.attention_masks = self._load_chunks_with_cache()
+        if self.use_attention_masks:
+            self.chunks, self.attention_masks = self._load_chunks_with_cache()
+        else:
+            self.chunks, _ = self._load_chunks_with_cache()
+            # Create a placeholder None for attention_masks
+            self.attention_masks = None
         print(f"Loaded {len(self.chunks)} chunks for training.")
 
     def _load_chunks_with_cache(self):
@@ -405,7 +410,12 @@ class EfficientPackedDataset(Dataset):
         return len(self.chunks)
 
     def __getitem__(self, idx):
-        return {
-            "input_ids": torch.tensor(self.chunks[idx], dtype=torch.long),
-            "attention_mask": torch.tensor(self.attention_masks[idx], dtype=torch.long)
-        }
+        if self.use_attention_masks:
+            return {
+                "input_ids": torch.tensor(self.chunks[idx], dtype=torch.long),
+                "attention_mask": torch.tensor(self.attention_masks[idx], dtype=torch.float)
+            }
+        else:
+            return {
+                "input_ids": torch.tensor(self.chunks[idx], dtype=torch.long)
+            }

@@ -157,7 +157,8 @@ class Trainer:
 
         # Record overall training start time
         self.training_start_time = time.time()
-        total_steps_per_epoch = len(self.dataloader) // self.grad_accum_steps
+        total_steps = len(self.dataloader)
+        total_steps_per_epoch = total_steps // self.grad_accum_steps
 
         separator = f"{'-' * 80}"
         self.log(f"\n{separator}")
@@ -179,7 +180,10 @@ class Trainer:
 
             for step, batch in enumerate(self.dataloader):
                 input_ids = batch["input_ids"].to(self.device)
-                attention_masks = batch["attention_mask"].to(self.device)
+                if "attention_mask" in batch:
+                    attention_masks = batch["attention_mask"].to(self.device)
+                else:
+                    attention_masks = None
                 labels = input_ids.clone().to(self.device)
 
                 outputs = self.model(input_ids, attention_masks)
@@ -198,7 +202,7 @@ class Trainer:
                 epoch_loss += loss.detach().item()
 
                 # Only update after accumulating enough gradients or at the end of the epoch
-                if (step + 1) % self.grad_accum_steps == 0 or step == len(self.dataloader) - 1:
+                if (step + 1) % self.grad_accum_steps == 0 or step == total_steps - 1:
                     # Clip gradients
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
 
@@ -234,24 +238,27 @@ class Trainer:
                         steps_per_sec = effective_step / max(1, elapsed_epoch_time)
                         tokens_per_sec = steps_per_sec * self.config["batch_size"] * MODEL_CONFIG["max_seq_len"]
 
+
+                        average_step_time = sum(self.step_times[-10:]) / min(10, len(self.step_times[-10:]))
+                        epoch_progress_percent = (effective_step / total_steps_per_epoch)
+                        time_left_in_epoch = self._format_time(average_step_time * (total_steps_per_epoch - effective_step))
                         # Log step information
                         step_info = [
                             f"\n{self.mode.capitalize()} Epoch [{epoch + 1}/{num_epochs}] "
-                            f"Step [{effective_step}/{total_steps_per_epoch}] ({step + 1}/{len(self.dataloader)})"
+                            f"Step [{effective_step}/{total_steps_per_epoch}] ({step + 1}/{total_steps})"
                             f" Loss: {avg_loss:.4f}",
 
-                            f"  LR: {current_lr:.6e}",
-
-                            f"  Speed: {steps_per_sec:.2f} steps/s ({tokens_per_sec:.2f} tokens/s)",
+                            f"  Speed: {steps_per_sec:.2f} steps/s ({tokens_per_sec:.2f} tokens/s) | "
+                            f"LR: {current_lr:.6e}",
 
                             f"  Step time: {step_time:.2f}s | Avg step time: "
-                            f"{sum(self.step_times[-10:]) / min(10, len(self.step_times[-10:])):.2f}s",
+                            f"{average_step_time :.2f}s",
 
-                            f"  Epoch progress: {(effective_step / total_steps_per_epoch) * 100:.1f}% | "
-                            f"Elapsed: {self._format_time(elapsed_epoch_time)} | "
+                            f"  Epoch progress: {epoch_progress_percent * 100:.1f}% | "
+                            f"Elapsed: {self._format_time(elapsed_epoch_time)} | Remaining: {time_left_in_epoch}",
+
+                            f"  Total training time: {self._format_time(elapsed_total_time)} | "
                             f"Remaining: {est_epoch_remaining}",
-
-                            f"  Total training time: {self._format_time(elapsed_total_time)}"
                         ]
 
                         for line in step_info:
@@ -263,7 +270,7 @@ class Trainer:
 
             # Epoch summary
             epoch_duration = time.time() - self.epoch_start_time
-            avg_loss = epoch_loss / len(self.dataloader)
+            avg_loss = epoch_loss / total_steps
 
             # Calculate overall progress
             overall_progress = (epoch + 1 - self.start_epoch) / (num_epochs - self.start_epoch)
@@ -276,7 +283,7 @@ class Trainer:
                 f"\n{separator}",
                 f"{self.mode.capitalize()} Epoch [{epoch + 1}/{num_epochs}] completed:",
                 f"  Loss: {avg_loss:.4f}",
-                f"  Duration: {self._format_time(epoch_duration)} ({len(self.dataloader) / epoch_duration:.1f} batches/s)",
+                f"  Duration: {self._format_time(epoch_duration)} ({total_steps / epoch_duration:.1f} batches/s)",
                 f"  Overall progress: {overall_progress * 100:.1f}%",
                 f"  Total elapsed: {self._format_time(elapsed_total_time)}",
                 f"  Estimated remaining: {est_total_remaining}",

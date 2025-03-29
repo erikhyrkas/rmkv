@@ -30,7 +30,8 @@ def get_causal_mask(memory_tokens, seq_len, attention_mask=None, device=None):
     Args:
         memory_tokens: Number of memory tokens
         seq_len: Number of sequence tokens
-        attention_mask: Optional (batch, seq_len) tensor with 1s for valid tokens and 0s for padding
+        attention_mask: Optional (batch, seq_len) tensor with properly formatted mask values
+                        (0 for tokens, -1e9 for padding)
         device: Device for the mask
 
     Returns:
@@ -54,31 +55,21 @@ def get_causal_mask(memory_tokens, seq_len, attention_mask=None, device=None):
     mask[:, memory_tokens:, memory_tokens:] = token_mask
 
     # Incorporate attention_mask if provided
+    # (assuming already formatted correctly with 0 for tokens, -1e9 for padding)
     if attention_mask is not None:
         # Create the padding mask for the combined sequence
         # Memory tokens are always valid
-        combined_mask = torch.ones(batch_size, total_len, device=device)
-        # Set the token validity based on the attention_mask
+        combined_mask = torch.zeros(batch_size, total_len, device=device)
+        # Set the token validity based on the attention_mask (already properly formatted)
         combined_mask[:, memory_tokens:] = attention_mask
 
-        # Expand padding mask to full attention matrix:
-        # For each position (row), if that position is padding (0 in attention_mask),
-        # it shouldn't attend to anything (doesn't matter)
-        # For each key (column), if that position is padding (0 in attention_mask),
-        # no position should attend to it
-        padding_mask = combined_mask.unsqueeze(1) * combined_mask.unsqueeze(2)
-
-        # Convert 0s to -inf to mask out in the softmax
-        padding_mask = padding_mask.masked_fill(padding_mask == 0, -1e9)
-
-        # 1s should have no effect on the existing mask
-        padding_mask = padding_mask.masked_fill(padding_mask == 1, 0)
+        # Expand to full attention matrix with proper broadcasting
+        padding_mask = combined_mask.unsqueeze(1) + combined_mask.unsqueeze(2)
 
         # Combine with the causal mask
         mask = mask + padding_mask
 
     return mask.unsqueeze(1)  # shape: (batch, 1, total_len, total_len)
-
 
 # -----------------------------------------------------------------------------
 # SigLU function (applies gating similar to GLU/SigLU)
@@ -140,13 +131,10 @@ class AttentionPooling(nn.Module):
         # Compute attention scores: (batch, memory_tokens, seq_len)
         scores = torch.bmm(query, x.transpose(1, 2)) * self.scale
 
-        # Apply attention mask if provided
+        # Apply attention mask if provided (assume already in proper format)
         if attention_mask is not None:
-            # Convert 0s to -inf, 1s to 0s
-            padding_mask = attention_mask.unsqueeze(1).float()  # (batch, 1, seq_len)
-            padding_mask = padding_mask.masked_fill(padding_mask == 0, -1e9)
-            padding_mask = padding_mask.masked_fill(padding_mask == 1, 0)
-            scores = scores + padding_mask
+            # Just add the mask directly - no conversion needed
+            scores = scores + attention_mask.unsqueeze(1)  # (batch, 1, seq_len)
 
         weights = torch.softmax(scores, dim=-1)
         # Compute weighted sum: (batch, memory_tokens, embed_dim)
@@ -343,7 +331,9 @@ class RMKVModel(nn.Module):
         """
         Args:
           input_ids: (batch, seq_len) tensor of token indices.
-          attention_mask: (batch, seq_len) tensor with 1s for valid tokens and 0s for padding.
+          attention_mask: (batch, seq_len) tensor with properly formatted values
+                          (0 for real tokens, -1e9 for padding).
+                          Can be None during pretraining for efficiency.
         Process:
           1. Compute token embeddings and add positional information.
           2. Initialize memory from learned initial_memory.

@@ -2,7 +2,7 @@ import os
 import argparse
 import torch
 from config import PATHS, create_dirs, PRETRAIN_CONFIG, FINETUNE_CONFIG
-from data.dataset import InstructionDataset, EfficientPackedDataset
+from data.dataset import InstructionDataset, PretrainingDataset
 from model.rmkv import RMKVModel
 from training.trainer import Trainer
 from training.checkpoint import load_from_checkpoint
@@ -40,7 +40,7 @@ def main():
     data_dir = args.data_dir if args.data_dir else PATHS["data_dir"]
     if args.mode == "pretrain":
         print(f"Using EfficientPackedDataset for pretraining from {data_dir}")
-        train_dataset = EfficientPackedDataset(data_dir=data_dir)
+        train_dataset = PretrainingDataset(data_dir=data_dir)
     else:  # finetune mode
         print(f"Using InstructionDataset for fine-tuning from {data_dir}")
         train_dataset = InstructionDataset(data_dir=data_dir)
