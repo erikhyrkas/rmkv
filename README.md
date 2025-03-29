@@ -1,6 +1,7 @@
+![Remarkable Five](remarkable-five.png)
 # Remarkable Five
 
-Remarkable Five is an efficient, 1.2B-parameter causal language model built using a novel RMKV (Recurrent Memory Key-Value) architecture. The project is designed to train stably on limited hardware (an Nvidia RTX 5000 with less than 30 GB of GPU memory), while achieving strong instruction-following performance specifically tailored for creative writing and story generation.
+Remarkable Five is an efficient, (yet to be determined) x.yB-parameter causal language model built using a novel RMKV (Recurrent Memory Key-Value) architecture. The project is designed to train stably on limited hardware (an Nvidia RTX 5000 with less than 30 GB of GPU memory), while achieving strong instruction-following performance specifically tailored for creative writing and story generation.
 
 ## Overview
 
@@ -13,10 +14,22 @@ Remarkable Five leverages a hybrid approach by combining ideas from Transformer 
 
 ```
 remarkable_five/
-├── README.md                   # Project overview and instructions
+├── README.md                   # This file -- Project overview and instructions
+├── architecture.md             # Description of architecture
 ├── requirements.txt            # Python dependencies
 ├── config.py                   # Hyperparameters and configuration settings
-├── main.py                     # Entry point for training and inference
+├── complete.py                 # run the model to do completions
+├── train.py                    # train the model
+├── train_tokenizer.py          # train the tokenizer
+├── checkpoints/                
+│   ├── rmkv_epoch_*.py         # previous model checkpoints
+│   ├── rmkv_latest.py          # last model checkpoint
+│   └── tokenizer.json          # result of tokenizer training
+├── logs/                       
+│   └── out.log                 # trainining logs (todo)
+├── training_data/              
+│   ├── *.txt                   # Training files
+│   └── *.md                    # Training files
 ├── model/
 │   ├── __init__.py
 │   ├── rmkv.py                 # RMKV model architecture definition
@@ -59,27 +72,19 @@ remarkable_five/
 ### Training
 Train tokenizer:
 ```bash
-python main.py --mode train_tokenizer
+python train_tokenizer.py
 ```
 
 To start training the RMKV model:
 ```bash
-python main.py --mode train
+python train.py
 ```
 
 ### Inference
 To generate text with a trained model:
 ```bash
-python main.py --mode infer --checkpoint <path_to_checkpoint> --prompt "Your prompt here" --max_length 100
+python complete.py [--checkpoint <path_to_checkpoint>] [--prompt "hello world"] [--max_length=100]
 ```
-
-## Future Roadmap
-
-- **Data Generation Module:** Implement advanced synthetic data generation pipelines.
-- **Advanced Tokenization:** Experiment with subword tokenizers and novel tokenization strategies.
-- **Fine-Tuning & RL:** Explore reinforcement learning and fine-tuning techniques for better instruction-following.
-- **Optimization & Quantization:** Integrate inference optimizations such as quantization, LoRA, and distillation for deployment.
-- **Extended Documentation:** Expand docs with detailed usage guides, API references, and design discussions.
 
 ## Contributing
 
