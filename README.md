@@ -1,14 +1,17 @@
 ![Remarkable Five](remarkable-five.png)
-# Remarkable Five
+# Remarkable-Five
 
-Remarkable Five is an efficient, (yet to be determined) x.yB-parameter causal language model built using a novel RMKV (Recurrent Memory Key-Value) architecture. The project is designed to train stably on limited hardware (an Nvidia RTX 5000 with less than 30 GB of GPU memory), while achieving strong instruction-following performance specifically tailored for creative writing and story generation.
+Remarkable-Five is an efficient, (yet to be determined) x.yB-parameter causal language model built using a novel RMKV (Recurrent Memory Key-Value) architecture. The project is designed to train stably on limited hardware (an Nvidia RTX 5000 with less than 30 GB of GPU memory), while achieving strong instruction-following performance specifically tailored for creative writing and story generation.
 
 ## Overview
 
-Remarkable Five leverages a hybrid approach by combining ideas from Transformer QKV attention with a recurrent memory mechanism. This allows the model to:
-- **Efficiently Handle Long Contexts:** Use a fixed number of memory tokens to capture long-range dependencies across text segments.
-- **Support Causal Generation:** Autoregressively generate text using only past context.
-- **Train with Limited Resources:** Achieve competitive performance on instruction-tuning tasks without the need for massive hardware or datasets.
+Remarkable Five leverages a hybrid approach by combining Transformer-style QKV attention with a recurrent memory mechanism. This allows the model to:
+- **Efficiently Handle Long Contexts:** Use a fixed number of memory tokens with learnable query vectors to capture long-range dependencies across text segments.
+- **Support Extremely Long Sequences:** Optionally use sinusoidal positional encoding that can scale to sequences up to 128K tokens.
+- **Implement Robust Causal Generation:** Use a sophisticated causal masking system where memory tokens can attend globally while regular tokens adhere to causal constraints.
+- **Leverage Flexible Memory Updates:** Choose between GRU, LSTM, or a lightweight MinimalRNN cell for recurrent memory updates.
+- **Train with Limited Resources:** Achieve competitive performance with a 1.2B-parameter model that can train on commodity hardware (an Nvidia RTX 5000 with less than 30 GB of GPU memory).
+- **Excel at Creative Tasks:** The architecture is specifically optimized for instruction-following in creative writing and story generation tasks.
 
 ## Project Structure
 
