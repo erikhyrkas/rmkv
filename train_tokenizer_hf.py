@@ -6,7 +6,6 @@
 import os
 import argparse
 
-import torch
 from datasets import load_dataset
 from config import PATHS, MODEL_CONFIG
 from data.tokenizer import RemarkableTokenizer
@@ -17,208 +16,6 @@ import random
 
 # python train_tokenizer_hf.py --vocab_size 30000 --max_samples 250000
 
-def process_fineweb_text(tokenizer, text, max_length=1024):
-    """
-    Process text from the Fineweb dataset for tokenizer training.
-
-    Args:
-        tokenizer: Tokenizer instance for encoding/padding
-        text (str): Raw text from Fineweb
-        max_length (int): Target sequence length
-
-    Returns:
-        list or None: Token IDs of fixed length, or None if text is invalid
-
-    Note:
-        Handles padding for short sequences and truncation for long ones.
-    """
-    text = text.strip()
-    if not text:
-        return None
-    tokens = tokenizer.encode(text)
-    if len(tokens) > max_length:
-        tokens = tokens[:max_length]
-    elif len(tokens) < max_length:
-        tokens += [tokenizer.pad_token_id] * (max_length - len(tokens))
-    return tokens
-
-
-def process_reasoning_text(tokenizer, prompt, response, max_length=1024):
-    """
-    Process text from the reasoning dataset for tokenizer training.
-
-    Formats the input with special tokens in the pattern:
-    {prompt}<start><think>{response}</think><end>
-
-    Args:
-        tokenizer: Tokenizer instance for encoding/padding
-        prompt (str): Instruction or question text
-        response (str): Response or reasoning text
-        max_length (int): Target sequence length
-
-    Returns:
-        list or None: Token IDs of fixed length, or None if text is invalid
-
-    Note:
-        The <think> tags wrap the reasoning portion to help the model
-        learn to separate reasoning from final answers.
-    """
-    prompt = prompt.strip()
-    response = response.strip()
-    if not prompt or not response:
-        return None
-    text = f"{prompt}<start><think>{response}</think><end>"
-    tokens = tokenizer.encode(text)
-    if len(tokens) > max_length:
-        tokens = tokens[:max_length]
-    elif len(tokens) < max_length:
-        tokens += [tokenizer.pad_token_id] * (max_length - len(tokens))
-    return tokens
-
-
-def process_nemotron_text(tokenizer, prompt, response, max_length=1024):
-    """
-    Process text from the Nemotron dataset for tokenizer training.
-
-    Extracts instruction and response from Nemotron's specific format
-    with header tags, and formats them for the RMKV model.
-
-    Args:
-        tokenizer: Tokenizer instance for encoding/padding
-        prompt (str): Raw prompt from Nemotron dataset
-        response (str): Raw response from Nemotron dataset
-        max_length (int): Target sequence length
-
-    Returns:
-        list or None: Token IDs of fixed length, or None if text is invalid
-
-    Note:
-        Handles Nemotron's specific format with <|end_header_id|> and <|eot_id|>
-        markers, converting to RMKV's format with <start> and <end> tokens.
-    """
-    if "<|end_header_id|>" not in prompt:
-        return None
-    try:
-        prompt_parts = prompt.split("user<|end_header_id|>")
-        instruction_part = prompt_parts[1].split("<|eot_id|>")[0].strip()
-        response_part = response.split("<|eot_id|>")[0].strip()
-        full_text = f"{instruction_part}<start>{response_part}<end>"
-        tokens = tokenizer.encode(full_text)
-        if len(tokens) > max_length:
-            tokens = tokens[:max_length]
-        elif len(tokens) < max_length:
-            tokens += [tokenizer.pad_token_id] * (max_length - len(tokens))
-        return tokens
-    except Exception:
-        return None
-
-
-class FinewebIterator:
-    def __init__(self, tokenizer, max_length=1024):
-        self.tokenizer = tokenizer
-        self.max_length = max_length
-        self.dataset = load_dataset("HuggingFaceFW/fineweb", name="CC-MAIN-2024-51", split="train", streaming=True)
-        self.iterator = iter(self.dataset)
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        while True:
-            try:
-                row = next(self.iterator)
-                text = row.get("text", "")
-                tokens = process_fineweb_text(self.tokenizer, text, self.max_length)
-                if tokens:
-                    return {"input_ids": torch.tensor(tokens, dtype=torch.long)}
-            except StopIteration:
-                # Restart dataset iterator
-                self.iterator = iter(self.dataset)
-                continue
-            except Exception:
-                # Skip problematic entries
-                continue
-
-
-class ReasoningIterator:
-    def __init__(self, tokenizer, max_length=1024):
-        self.tokenizer = tokenizer
-        self.max_length = max_length
-        self.dataset = load_dataset("glaiveai/reasoning-v1-20m", split="train")
-        self.iterator = iter(self.dataset)
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        while True:
-            try:
-                row = next(self.iterator)
-                prompt = row.get("prompt", "")
-                response = row.get("response", "")
-                tokens = process_reasoning_text(self.tokenizer, prompt, response, self.max_length)
-                if tokens:
-                    return {"input_ids": torch.tensor(tokens, dtype=torch.long)}
-            except StopIteration:
-                # Restart dataset iterator
-                self.iterator = iter(self.dataset)
-                continue
-            except Exception:
-                # Skip problematic entries
-                continue
-
-
-class NemotronIterator:
-    def __init__(self, tokenizer, max_length=1024):
-        self.tokenizer = tokenizer
-        self.max_length = max_length
-        self.dataset = load_dataset("nvidia/Llama-Nemotron-Post-Training-Dataset-v1", "SFT",
-                                    split=["code", "math", "science", "instruction following", "chat"],
-                                    streaming=True)
-        self.iterator = iter(self.dataset)
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        while True:
-            try:
-                row = next(self.iterator)
-                prompt = row.get("input", "")
-                response = row.get("output", "")
-                tokens = process_nemotron_text(self.tokenizer, prompt, response, self.max_length)
-                if tokens:
-                    return {"input_ids": torch.tensor(tokens, dtype=torch.long)}
-            except StopIteration:
-                # Restart dataset iterator
-                self.iterator = iter(self.dataset)
-                continue
-            except Exception:
-                # Skip problematic entries
-                continue
-
-
-def interleave_streams(tokenizer, max_length=1024, weights=(5, 2, 1)):
-    """
-    Creates an interleaved stream of data from multiple sources.
-    Each source gets its own iterator with its own copy of the tokenizer to avoid
-    the "Already mutably borrowed" error.
-    """
-    iterators = [
-        FinewebIterator(tokenizer, max_length),
-        ReasoningIterator(tokenizer, max_length),
-        NemotronIterator(tokenizer, max_length)
-    ]
-
-    probs = [w / sum(weights) for w in weights]
-
-    while True:
-        i = random.choices(range(len(iterators)), weights=probs)[0]
-        try:
-            return next(iterators[i])
-        except Exception as e:
-            print(f"Error in stream {i}: {e}")
-            continue
 
 
 def main():
@@ -261,6 +58,7 @@ def main():
             multiple datasets, with error handling to ensure training proceeds
             even if individual samples or datasets fail.
         """
+
         def __init__(self, tokenizer, max_length, weights, max_samples):
             self.tokenizer = tokenizer
             self.max_length = max_length
@@ -320,7 +118,7 @@ def main():
                     prompt = row.get("prompt", "").strip()
                     response = row.get("response", "").strip()
                     if prompt and response:
-                        return f"{prompt}<start><think>{response}</think><end>"
+                        return f"{prompt}<start>{response}<end>"
                 except Exception:
                     # Skip problematic entries
                     pass
@@ -379,6 +177,7 @@ def main():
 
             # If we still don't have a sample after trying all sources, return a simple fallback
             return "Fallback text for tokenizer training."
+
     trainer = BpeTrainer(
         vocab_size=30000,
         special_tokens=["<think>", "</think>", "<start>", "<end>", "<pad>", "<unk>"],

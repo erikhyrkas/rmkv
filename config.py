@@ -19,8 +19,8 @@ PRETRAIN_CONFIG = {
     "learning_rate": 1e-4,
     "batch_size": 8,
     "weight_decay": 1e-2,
-    "num_epochs": 10,                   # used for train.py
-    "max_steps": 30000,                 # used for train_hf.py
+    "num_epochs": 1,                    # used for train.py
+    "max_steps": 5000,                  # used for train_hf.py -- 30000
     "gradient_accumulation_steps": 4,   # Simulate larger batch sizes
     "warmup_steps": 1000,               # Number of warmup steps for the learning rate scheduler
     "max_grad_norm": 1.0,               # For gradient clipping

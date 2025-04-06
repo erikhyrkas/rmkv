@@ -19,15 +19,141 @@ from tqdm import tqdm
 import time
 import re
 import random
-
-# this is a little bit of a mess, really need a shared utility file...
-# Import the needed functions from train_tokenizer_hf
-from train_tokenizer_hf import process_fineweb_text, process_reasoning_text, process_nemotron_text
 from training.checkpoint import save_checkpoint
 
 
 # python train_hf.py --mode pretrain
 # python train_hf.py --mode finetune
+
+
+def process_fineweb_text(tokenizer, text, max_length=1024):
+    """
+    Process text from the Fineweb dataset for tokenizer training.
+
+    Args:
+        tokenizer: Tokenizer instance for encoding/padding
+        text (str): Raw text from Fineweb
+        max_length (int): Target sequence length
+
+    Returns:
+        list or None: Token IDs of fixed length, or None if text is invalid
+
+    Note:
+        Handles padding for short sequences and truncation for long ones.
+    """
+    text = text.strip()
+    if not text:
+        return None
+    tokens = tokenizer.encode(text)
+
+    # Create attention mask (0 for real tokens, -1e9 for padding)
+    attention_mask = [0] * min(len(tokens), max_length)
+
+    if len(tokens) > max_length:
+        tokens = tokens[:max_length]
+    else:
+        padding_length = max_length - len(tokens)
+        # Add padding to tokens
+        tokens += [tokenizer.pad_token_id] * padding_length
+        # Add mask values for padding
+        attention_mask += [-1e9] * padding_length
+
+    return {"input_ids": tokens, "attention_mask": attention_mask}
+
+
+def process_reasoning_text(tokenizer, prompt, response, for_pretraining, max_length=1024):
+    """
+    Process text from the reasoning dataset for tokenizer training.
+
+    Formats the input with special tokens in the pattern:
+    {prompt}<start><think>{response}</think><end>
+
+    Args:
+        tokenizer: Tokenizer instance for encoding/padding
+        prompt (str): Instruction or question text
+        response (str): Response or reasoning text
+        max_length (int): Target sequence length
+
+    Returns:
+        list or None: Token IDs of fixed length, or None if text is invalid
+
+    Note:
+        The <think> tags wrap the reasoning portion to help the model
+        learn to separate reasoning from final answers.
+    """
+    prompt = prompt.strip()
+    response = response.strip()
+    if not prompt or not response:
+        return None
+
+    if for_pretraining:
+        text = prompt + " " + response
+        text = re.sub(r"<think>|</think>", " ", text).strip()
+    else:
+        text = f"{prompt}<start>{response}<end>"
+
+    tokens = tokenizer.encode(text)
+
+    # Create attention mask (0 for real tokens, -1e9 for padding)
+    attention_mask = [0] * min(len(tokens), max_length)
+
+    if len(tokens) > max_length:
+        tokens = tokens[:max_length]
+    else:
+        padding_length = max_length - len(tokens)
+        tokens += [tokenizer.pad_token_id] * padding_length
+        attention_mask += [-1e9] * padding_length
+
+    return {"input_ids": tokens, "attention_mask": attention_mask}
+
+
+def process_nemotron_text(tokenizer, prompt, response, for_pretraining, max_length=1024):
+    """
+    Process text from the Nemotron dataset for tokenizer training.
+
+    Extracts instruction and response from Nemotron's specific format
+    with header tags, and formats them for the RMKV model.
+
+    Args:
+        tokenizer: Tokenizer instance for encoding/padding
+        prompt (str): Raw prompt from Nemotron dataset
+        response (str): Raw response from Nemotron dataset
+        max_length (int): Target sequence length
+
+    Returns:
+        list or None: Token IDs of fixed length, or None if text is invalid
+
+    Note:
+        Handles Nemotron's specific format with <|end_header_id|> and <|eot_id|>
+        markers, converting to RMKV's format with <start> and <end> tokens.
+    """
+    if "<|end_header_id|>" not in prompt:
+        return None
+    try:
+        prompt_parts = prompt.split("user<|end_header_id|>")
+        instruction_part = prompt_parts[1].split("<|eot_id|>")[0].strip()
+        response_part = response.split("<|eot_id|>")[0].strip()
+        if for_pretraining:
+            full_text = instruction_part + " " + response_part
+            full_text = re.sub(r"<think>|</think>", " ", full_text).strip()
+        else:
+            full_text = f"{instruction_part}<start>{response_part}<end>"
+        tokens = tokenizer.encode(full_text)
+
+        # Create attention mask (0 for real tokens, -1e9 for padding)
+        attention_mask = [0] * min(len(tokens), max_length)
+
+        if len(tokens) > max_length:
+            tokens = tokens[:max_length]
+        else:
+            padding_length = max_length - len(tokens)
+            tokens += [tokenizer.pad_token_id] * padding_length
+            attention_mask += [-1e9] * padding_length
+
+        return {"input_ids": tokens, "attention_mask": attention_mask}
+    except Exception:
+        return None
+
 
 # -------------------------
 # Stream Dataset Iterators
@@ -65,9 +191,12 @@ class FinewebIterator:
             try:
                 row = next(self.iterator)
                 text = row.get("text", "")
-                tokens = process_fineweb_text(self.tokenizer, text, self.max_length)
-                if tokens:
-                    return {"input_ids": torch.tensor(tokens, dtype=torch.long)}
+                processed = process_fineweb_text(self.tokenizer, text, self.max_length)
+                if processed:
+                    return {
+                        "input_ids": torch.tensor(processed["input_ids"], dtype=torch.long),
+                        "attention_mask": torch.tensor(processed["attention_mask"], dtype=torch.float)
+                    }
             except StopIteration:
                 # Restart dataset iterator
                 self.iterator = iter(self.dataset)
@@ -96,11 +225,12 @@ class ReasoningIterator:
         support the reasoning pattern in the model's training.
     """
 
-    def __init__(self, tokenizer, max_length=1024):
+    def __init__(self, tokenizer, for_pretraining, max_length=1024):
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.dataset = load_dataset("glaiveai/reasoning-v1-20m", split="train")
         self.iterator = iter(self.dataset)
+        self.for_pretraining = for_pretraining
 
     def __iter__(self):
         return self
@@ -113,7 +243,10 @@ class ReasoningIterator:
                 response = row.get("response", "")
                 tokens = process_reasoning_text(self.tokenizer, prompt, response, self.max_length)
                 if tokens:
-                    return {"input_ids": torch.tensor(tokens, dtype=torch.long)}
+                    return {
+                        "input_ids": torch.tensor(tokens["input_ids"], dtype=torch.long),
+                        "attention_mask": torch.tensor(tokens["attention_mask"], dtype=torch.float)
+                    }
             except StopIteration:
                 # Restart dataset iterator
                 self.iterator = iter(self.dataset)
@@ -142,7 +275,7 @@ class NemotronIterator:
         handling any loading errors or stream interruptions gracefully.
     """
 
-    def __init__(self, tokenizer, max_length=1024):
+    def __init__(self, tokenizer, for_pretraining, max_length=1024):
         self.tokenizer = tokenizer
         self.max_length = max_length
         # Load just one split at a time to avoid the list issue
@@ -150,6 +283,7 @@ class NemotronIterator:
         self.iterators = {}
         self.current_split_idx = 0
         self.splits = ["code", "math", "science", "instruction following", "chat"]
+        self.for_pretraining = for_pretraining
 
         # Initialize with the first split
         self.init_current_split()
@@ -184,9 +318,12 @@ class NemotronIterator:
                 row = next(self.iterators[current_split])
                 prompt = row.get("input", "")
                 response = row.get("output", "")
-                tokens = process_nemotron_text(self.tokenizer, prompt, response, self.max_length)
+                tokens = process_nemotron_text(self.tokenizer, prompt, response, self.for_pretraining, self.max_length)
                 if tokens:
-                    return {"input_ids": torch.tensor(tokens, dtype=torch.long)}
+                    return {
+                        "input_ids": torch.tensor(tokens["input_ids"], dtype=torch.long),
+                        "attention_mask": torch.tensor(tokens["attention_mask"], dtype=torch.float)
+                    }
             except StopIteration:
                 # Rotate to next split
                 self.current_split_idx = (self.current_split_idx + 1) % len(self.splits)
@@ -233,14 +370,15 @@ class InterleaveDataset(IterableDataset):
         enabling infinite streaming for long training runs.
     """
 
-    def __init__(self, tokenizer, max_length=1024, weights=(5, 1, 1)):
+    def __init__(self, tokenizer, for_pretraining, max_length=1024, weights=(5, 1, 1)):
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.weights = weights
+        self.for_pretraining = for_pretraining
         self.iterators = [
             FinewebIterator(tokenizer, max_length),
-            ReasoningIterator(tokenizer, max_length),
-            NemotronIterator(tokenizer, max_length)
+            ReasoningIterator(tokenizer, self.for_pretraining, max_length),
+            NemotronIterator(tokenizer, self.for_pretraining, max_length)
         ]
         self.probs = [w / sum(weights) for w in weights]
 
@@ -252,51 +390,6 @@ class InterleaveDataset(IterableDataset):
             except Exception as e:
                 print(f"Error in stream {i}: {e}")
                 continue
-
-
-# -------------------------
-# Hugging Face Dataset Wrappers
-# -------------------------
-class HFStreamingDataset(IterableDataset):
-    def __init__(self, hf_dataset, tokenizer, max_len=1024):
-        self.dataset = hf_dataset
-        self.tokenizer = tokenizer
-        self.max_len = max_len
-
-    def __iter__(self):
-        for sample in self.dataset:
-            text = sample.get("text", "")
-            if not text:
-                continue
-            tokens = self.tokenizer.encode(text)
-            if len(tokens) > self.max_len:
-                tokens = tokens[:self.max_len]
-            elif len(tokens) < self.max_len:
-                tokens += [self.tokenizer.pad_token_id] * (self.max_len - len(tokens))
-            yield {
-                "input_ids": torch.tensor(tokens, dtype=torch.long)
-            }
-
-
-class HFFinetuneDataset(torch.utils.data.Dataset):
-    def __init__(self, hf_dataset, tokenizer, max_len=1024):
-        self.samples = []
-        self.max_len = max_len
-        self.tokenizer = tokenizer
-        for sample in hf_dataset:
-            prompt = sample.get("prompt", "")
-            response = sample.get("response", "")
-            text = f"{prompt.strip()}<start>{response.strip()}<end>"
-            tokens = self.tokenizer.encode(text)
-            if len(tokens) <= max_len:
-                tokens += [self.tokenizer.pad_token_id] * (max_len - len(tokens))
-                self.samples.append(torch.tensor(tokens, dtype=torch.long))
-
-    def __len__(self):
-        return len(self.samples)
-
-    def __getitem__(self, idx):
-        return {"input_ids": self.samples[idx]}
 
 
 # -------------------------
@@ -338,17 +431,22 @@ def evaluate(model, tokenizer, device, mode, max_samples=50):
 
         for text in texts:
             tokens = tokenizer.encode(text)
+            # Create attention mask
+            attention_mask = [0] * min(len(tokens), MODEL_CONFIG["max_seq_len"])
+
             if len(tokens) > MODEL_CONFIG["max_seq_len"]:
                 tokens = tokens[:MODEL_CONFIG["max_seq_len"]]
             else:
-                tokens += [tokenizer.pad_token_id] * (MODEL_CONFIG["max_seq_len"] - len(tokens))
+                padding_length = MODEL_CONFIG["max_seq_len"] - len(tokens)
+                attention_mask += [-1e9] * padding_length
+                tokens += [tokenizer.pad_token_id] * padding_length
 
-            # Model now handles tensor conversion internally
-            outputs = model(tokens)
-
-            # But we still need to ensure input_tensor for the labels
             input_tensor = torch.tensor(tokens, dtype=torch.long).unsqueeze(0).to(device)
             labels = input_tensor.clone()
+            attention_tensor = torch.tensor(attention_mask, dtype=torch.float).unsqueeze(0).to(device)
+
+            # Model now handles tensor conversion internally
+            outputs = model(input_tensor, attention_tensor)
 
             loss = loss_fn(outputs.view(-1, outputs.size(-1)), labels.view(-1))
             total_loss += loss.item()
@@ -409,8 +507,13 @@ def train(model, dataloader, optimizer, scheduler, device, config, pad_token_id,
             inputs = batch["input_ids"].to(device)
             labels = inputs.clone()
 
+            # Get and use attention mask
+            attention_mask = None
+            if "attention_mask" in batch:
+                attention_mask = batch["attention_mask"].to(device)
+
             # Model handles tensor shape internally now
-            outputs = model(inputs)
+            outputs = model(inputs, attention_mask=attention_mask)
             loss = loss_fn(outputs.view(-1, outputs.size(-1)), labels.view(-1))
             loss.backward()
 
@@ -489,12 +592,12 @@ def main(mode="pretrain"):
     if mode == "pretrain":
         # Use our proper IterableDataset implementation for pretraining
         # Weights: (5, 1, 1) prioritizes Fineweb data (web text) for general knowledge
-        dataset = InterleaveDataset(tokenizer, MODEL_CONFIG["max_seq_len"], weights=(5, 1, 1))
+        dataset = InterleaveDataset(tokenizer, True, MODEL_CONFIG["max_seq_len"], weights=(5, 1, 1))
         dataloader = DataLoader(dataset, batch_size=config["batch_size"])
     else:
         # SFT mode (Supervised Fine-Tuning) uses different data mixture
         # Weights: (0, 2, 1) focuses on reasoning and instruction data only
-        dataset = InterleaveDataset(tokenizer, MODEL_CONFIG["max_seq_len"], weights=(0, 2, 1))
+        dataset = InterleaveDataset(tokenizer, False, MODEL_CONFIG["max_seq_len"], weights=(0, 2, 1))
         dataloader = DataLoader(dataset, batch_size=config["batch_size"])
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"])

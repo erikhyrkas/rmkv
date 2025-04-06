@@ -314,7 +314,7 @@ class PretrainingDataset(Dataset):
                 content = f.read()
 
             # For pretraining, remove instruction markers if present
-            content = re.sub(r"<start>|<end>", "", content)
+            content = re.sub(r"<start>|<end>", " ", content).strip()
 
             # Tokenize the content
             doc_tokens = self.tokenizer.encode(content)

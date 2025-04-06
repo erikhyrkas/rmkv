@@ -4,6 +4,7 @@ import torch.nn as nn
 
 from config import MODEL_CONFIG
 
+
 # -----------------------------------------------------------------------------
 # RMKV Model: Recurrent Memory Key-Value Architecture
 # -----------------------------------------------------------------------------
@@ -641,5 +642,6 @@ class RMKVModel(nn.Module):
 
         hidden_states = self.ln_final(hidden_states)
         logits = self.head(hidden_states)
+        # print("mean logits", logits[0, -1].mean().item(), "std", logits[0, -1].std().item())
 
         return logits, memory
