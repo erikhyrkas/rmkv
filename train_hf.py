@@ -459,7 +459,7 @@ def evaluate(model, tokenizer, device, mode, max_samples=50):
 # -------------------------
 # Training Function
 # -------------------------
-def train(model, dataloader, optimizer, scheduler, device, config, pad_token_id, tokenizer, mode, start_step=0):
+def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pad_token_id, tokenizer, mode, start_step=0):
     """
     Main training loop for the RMKV model.
 

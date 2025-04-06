@@ -25,7 +25,6 @@ PRETRAIN_CONFIG = {
     "warmup_steps": 1000,               # Number of warmup steps for the learning rate scheduler
     "max_grad_norm": 1.0,               # For gradient clipping
     "fp16": True,                       # Enable mixed precision training
-    "use_sincos": True,                 # use sin/cos based positional embedding
     "seed": 42,
 }
 
@@ -39,7 +38,6 @@ FINETUNE_CONFIG = {
     "warmup_steps": 200,                # Fewer warmup steps for finetuning
     "max_grad_norm": 0.5,               # Stricter gradient clipping for stability
     "fp16": True,
-    "use_sincos": True,
     "seed": 42,
 }
 

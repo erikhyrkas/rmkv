@@ -23,35 +23,132 @@ from config import MODEL_CONFIG
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
-# Sin/Cos Positional Encoding (supports very long sequences, e.g. 128k tokens)
+# RoPE (Rotary Position Embeddings)
 # -----------------------------------------------------------------------------
-def get_sinusoidal_encoding(seq_len, dim):
+class RotaryPositionalEmbedding(nn.Module):
     """
-    Creates sinusoidal positional encodings for a sequence.
+    Implements Rotary Position Embeddings (RoPE) as described in:
+    "RoFormer: Enhanced Transformer with Rotary Position Embedding"
 
-    Implements the positional encoding described in "Attention Is All You Need"
-    with sine and cosine functions of different frequencies. This approach
-    allows the model to generalize to sequence lengths not seen during training.
+    RoPE encodes relative positions by rotating query and key vectors in the complex plane.
+    This allows the model to better capture relative positional information without
+    requiring explicit positional encodings to be added to the token embeddings.
 
     Args:
-        seq_len (int): Maximum sequence length
         dim (int): Dimension of the embedding space
-
-    Returns:
-        Tensor of shape (1, seq_len, dim) containing positional encodings
-
-    Note:
-        The output is unsqueezed to allow for easy broadcasting during
-        addition to batched token embeddings.
+        max_seq_len (int): Maximum sequence length
+        base (float, optional): Base for the exponential scaling. Defaults to 10000.0.
     """
-    position = torch.arange(seq_len, dtype=torch.float32).unsqueeze(1)
-    div_term = torch.exp(torch.arange(0, dim, 2, dtype=torch.float32) * -(math.log(10000.0) / dim))
-    pe = torch.zeros(seq_len, dim, dtype=torch.float32)
-    pe[:, 0::2] = torch.sin(position * div_term)
-    pe[:, 1::2] = torch.cos(position * div_term)
-    return pe.unsqueeze(0)  # shape (1, seq_len, dim)
 
+    def __init__(self, dim, max_seq_len, base=10000.0):
+        super().__init__()
+        self.dim = dim
+        self.max_seq_len = max_seq_len
+        self.base = base
 
+        # Only need to compute cos/sin for half the dimension
+        half_dim = dim // 2
+        # Create a sequence of frequencies
+        freqs = 1.0 / (base ** (torch.arange(0, half_dim, 2) / half_dim))
+
+        # Create position sequence
+        pos = torch.arange(max_seq_len)
+
+        # Compute cos/sin values for positions and frequencies
+        freqs = pos.unsqueeze(1) * freqs.unsqueeze(0)  # (seq_len, half_dim/2)
+        cos_cached = torch.cos(freqs)  # (seq_len, half_dim/2)
+        sin_cached = torch.sin(freqs)  # (seq_len, half_dim/2)
+
+        # Duplicate values to match the original embedding dimension
+        cos_cached = torch.repeat_interleave(cos_cached, 2, dim=1)  # (seq_len, half_dim)
+        sin_cached = torch.repeat_interleave(sin_cached, 2, dim=1)  # (seq_len, half_dim)
+
+        # Register cos/sin as buffers so they're saved in the state_dict
+        self.register_buffer("cos_cached", cos_cached)
+        self.register_buffer("sin_cached", sin_cached)
+
+    def forward(self, x, offset=0):
+        """
+        Apply rotary position embeddings to the input tensor.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch_size, seq_len, dim)
+            offset (int, optional): Position offset. Useful for continuing generation.
+                                    Defaults to 0.
+
+        Returns:
+            torch.Tensor: Tensor with rotary position embeddings applied
+        """
+        seq_len = x.size(1)
+
+        # Get the relevant part of the cached cos/sin values
+        cos = self.cos_cached[offset:offset + seq_len]  # (seq_len, dim/2)
+        sin = self.sin_cached[offset:offset + seq_len]  # (seq_len, dim/2)
+
+        # Apply RoPE rotation. For each position:
+        # [x_1, x_2, x_3, x_4, ...] ->
+        # [x_1*cos - x_2*sin, x_1*sin + x_2*cos, x_3*cos - x_4*sin, x_3*sin + x_4*cos, ...]
+        x_half1, x_half2 = torch.chunk(x, 2, dim=-1)
+
+        # Ensuring these are properly broadcast
+        cos = cos.unsqueeze(0)  # (1, seq_len, dim/2)
+        sin = sin.unsqueeze(0)  # (1, seq_len, dim/2)
+
+        # Rotate the first half
+        x1_rot = x_half1 * cos - torch.cat([-x_half1[..., 1:], x_half1[..., :1]], dim=-1) * sin
+        # Rotate the second half
+        x2_rot = x_half2 * cos - torch.cat([-x_half2[..., 1:], x_half2[..., :1]], dim=-1) * sin
+
+        # Combine the two halves
+        return torch.cat([x1_rot, x2_rot], dim=-1)
+
+    def _apply_rotary(self, q, k):
+        """
+        Apply rotary position embeddings to query and key tensors.
+
+        Args:
+            q (torch.Tensor): Query tensor of shape (batch, heads, seq_len, head_dim)
+            k (torch.Tensor): Key tensor of shape (batch, heads, seq_len, head_dim)
+
+        Returns:
+            tuple: (q_rot, k_rot) - query and key tensors with rotary embeddings applied
+        """
+        # Reshape for easier manipulation
+        q_original_shape = q.shape
+        k_original_shape = k.shape
+
+        # Reshape to (batch, seq_len, heads*head_dim)
+        q = q.transpose(1, 2).reshape(q.size(0), q.size(2), -1)
+        k = k.transpose(1, 2).reshape(k.size(0), k.size(2), -1)
+
+        # Apply rotary embeddings
+        q_rot = self.forward(q)
+        k_rot = self.forward(k)
+
+        # Reshape back to original shape
+        q_rot = q_rot.reshape(q_original_shape[0], q_original_shape[2], q_original_shape[1],
+                              q_original_shape[3]).transpose(1, 2)
+        k_rot = k_rot.reshape(k_original_shape[0], k_original_shape[2], k_original_shape[1],
+                              k_original_shape[3]).transpose(1, 2)
+
+        return q_rot, k_rot
+
+    def apply_rotary_pos_emb(self, q, k, exclude_first=0):
+        # q and k: (batch, heads, seq_len, head_dim)
+        if exclude_first > 0:
+            # Split out the memory tokens (which we do not want to rotate)
+            q_exempt = q[:, :, :exclude_first, :]
+            k_exempt = k[:, :, :exclude_first, :]
+            # Apply RoPE only to the regular tokens
+            q_tokens = q[:, :, exclude_first:, :]
+            k_tokens = k[:, :, exclude_first:, :]
+            q_tokens, k_tokens = self._apply_rotary(q_tokens, k_tokens)
+            # Concatenate the unmodified memory tokens back with the rotated tokens
+            q_rot = torch.cat([q_exempt, q_tokens], dim=2)
+            k_rot = torch.cat([k_exempt, k_tokens], dim=2)
+            return q_rot, k_rot
+        else:
+            return self._apply_rotary(q, k)
 # -----------------------------------------------------------------------------
 # Utility: Create a causal mask for the combined sequence (memory + tokens)
 # -----------------------------------------------------------------------------
@@ -321,13 +418,16 @@ class QKVBlock(nn.Module):
         self.out_linear = nn.Linear(embed_dim, embed_dim)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x, mask=None):
+    def forward(self, x, rope, mask=None, rope_exclude=0):
         # x: (batch, seq_len, embed_dim)
         # mask: (batch, 1, seq_len, seq_len) - includes both causal and padding masks
         batch_size, seq_len, embed_dim = x.size()
         q = self.q_linear(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
         k = self.k_linear(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
         v = self.v_linear(x).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+
+        if rope is not None:
+            q, k = rope.apply_rotary_pos_emb(q, k, exclude_first=rope_exclude)
 
         # Compute attention scores.
         scores = torch.matmul(q, k.transpose(-2, -1)) * self.scale  # (batch, heads, seq_len, seq_len)
@@ -378,7 +478,7 @@ class RMKVBlock(nn.Module):
         self.attn_pool = AttentionPooling(embed_dim, memory_tokens)
         self.recurrent_cell = RecurrentMemoryCell(embed_dim, cell_type=cell_type)
 
-    def forward(self, x, memory, attention_mask=None):
+    def forward(self, x, memory, rope, attention_mask=None):
         """
            Process tokens and memory through one RMKV block.
 
@@ -414,7 +514,7 @@ class RMKVBlock(nn.Module):
         mask = get_causal_mask(self.memory_tokens, seq_len, attention_mask, device)
 
         # 3. Process with QKV block using the mask.
-        out = self.qkv_block(combined, mask=mask)
+        out = self.qkv_block(combined, rope, mask=mask, rope_exclude=self.memory_tokens)
         out = self.dropout(out)
 
         # 4. Split output into memory and token parts.
@@ -477,12 +577,7 @@ class RMKVModel(nn.Module):
         self.token_embed = nn.Embedding(vocab_size, embed_dim)
 
         max_seq_len = model_config["max_seq_len"]
-        # Use sin/cos positional encoding if specified; otherwise, use learned embeddings.
-        if model_config.get("use_sincos", False):
-            self.pos_embed = get_sinusoidal_encoding(max_seq_len, embed_dim)
-        else:
-            self.pos_embed = nn.Parameter(torch.zeros(1, max_seq_len, embed_dim))
-            nn.init.trunc_normal_(self.pos_embed, std=0.02)
+        self.rope = RotaryPositionalEmbedding(embed_dim, max_seq_len)
 
         self.memory_tokens = model_config["memory_tokens"]
         # Initialize memory tokens (learned and shared across the batch).
@@ -550,12 +645,7 @@ class RMKVModel(nn.Module):
         batch_size, seq_len = input_ids.size()
 
         token_embeddings = self.token_embed(input_ids)  # (batch, seq_len, embed_dim)
-        pos_embeddings = self.pos_embed[:, :seq_len, :]
-
-        if isinstance(pos_embeddings, torch.Tensor) and pos_embeddings.device != token_embeddings.device:
-            pos_embeddings = pos_embeddings.to(token_embeddings.device)
-
-        x = token_embeddings + pos_embeddings
+        x = token_embeddings
 
         # Broadcast the initial memory for the batch and add positional embeddings
         memory = self.initial_memory.expand(batch_size, -1, -1)
@@ -563,7 +653,7 @@ class RMKVModel(nn.Module):
 
         # Process through each RMKVBlock.
         for layer in self.layers:
-            x, memory = layer(x, memory, attention_mask)
+            x, memory = layer(x, memory, self.rope, attention_mask)
 
         x = self.ln_final(x)
 
@@ -629,16 +719,10 @@ class RMKVModel(nn.Module):
         # Standardize token_ids to be a proper tensor
         token_tensor = self._ensure_tensor(token_ids)
 
-        token_embeddings = self.token_embed(token_tensor)
-        pos_embeddings = self.pos_embed[:, :token_tensor.size(1), :]
-
-        if pos_embeddings.device != token_embeddings.device:
-            pos_embeddings = pos_embeddings.to(token_embeddings.device)
-
-        hidden_states = token_embeddings + pos_embeddings
+        hidden_states = self.token_embed(token_tensor)
 
         for layer in self.layers:
-            hidden_states, memory = layer(hidden_states, memory, None)
+            hidden_states, memory = layer(hidden_states, memory, self.rope, None)
 
         hidden_states = self.ln_final(hidden_states)
         logits = self.head(hidden_states)
