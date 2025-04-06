@@ -25,6 +25,7 @@ PRETRAIN_CONFIG = {
     "warmup_steps": 1000,               # Number of warmup steps for the learning rate scheduler
     "max_grad_norm": 1.0,               # For gradient clipping
     "fp16": True,                       # Enable mixed precision training
+    "max_segment_len": 128,             # Maximum sequence length per segment for phase 2 training
     "seed": 42,
 }
 

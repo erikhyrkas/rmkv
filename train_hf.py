@@ -489,32 +489,63 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
     step = start_step
     loss_fn = torch.nn.CrossEntropyLoss(ignore_index=pad_token_id)
     start_time = time.time()
+    is_flow = mode == "flow"
 
     for epoch in range(config["num_epochs"]):
         pbar = tqdm(dataloader, desc=f"{mode} Epoch {epoch + 1}", dynamic_ncols=True)
         total_loss = 0
+
         for batch in pbar:
             if config.get("max_steps") and step >= config["max_steps"]:
                 elapsed = time.time() - start_time
                 summary_path = os.path.join(PATHS["logs_dir"], f"{mode}_summary.log")
                 with open(summary_path, "w") as f:
-                    f.write(f"Final loss: {total_loss / (step + 1):.4f}\n")
-                    f.write(f"Total steps: {step}\n")
-                    f.write(f"Elapsed time: {time.strftime('%H:%M:%S', time.gmtime(elapsed))}\n")
+                    f.write(f"Final loss: {total_loss / (step + 1):.4f}\\n")
+                    f.write(f"Total steps: {step}\\n")
+                    f.write(f"Elapsed time: {time.strftime('%H:%M:%S', time.gmtime(elapsed))}\\n")
                 print(f"Training complete. Summary written to {summary_path}")
                 return
 
-            inputs = batch["input_ids"].to(device)
-            labels = inputs.clone()
+            if is_flow:
+                input_ids = batch["input_ids"].to(device)  # [B, S, L]
+                attention_mask = batch["attention_mask"].to(device)  # [B, S, L]
+                B, S, L = input_ids.shape
+                memory = model.initial_memory.expand(B, -1, -1).to(device)
+                batch_loss = 0
 
-            # Get and use attention mask
-            attention_mask = None
-            if "attention_mask" in batch:
-                attention_mask = batch["attention_mask"].to(device)
+                for i in range(S):
+                    segment = input_ids[:, i]  # [B, L]
+                    mask = attention_mask[:, i]  # [B, L]
 
-            # Model handles tensor shape internally now
-            outputs = model(inputs, attention_mask=attention_mask)
-            loss = loss_fn(outputs.view(-1, outputs.size(-1)), labels.view(-1))
+                    inputs = segment[:, :-1]
+                    labels = segment[:, 1:]
+                    input_mask = mask[:, :-1]
+
+                    if step % 100 == 0:
+                        num_valid = input_mask.sum().item()
+                        print(f"[Debug] Step {step}: {num_valid} real tokens in batch")
+
+                    logits, memory = model.generate_step(inputs.tolist(), memory, input_mask)
+
+                    active_loss = input_mask.reshape(-1) > 0
+                    active_logits = logits.view(-1, logits.size(-1))[active_loss]
+                    active_labels = labels.view(-1)[active_loss]
+                    loss = loss_fn(active_logits, active_labels)
+                    batch_loss += loss
+
+                loss = batch_loss / S
+
+
+            else:
+                inputs = batch["input_ids"].to(device)
+                labels = inputs.clone()
+                attention_mask = batch.get("attention_mask", None)
+                if attention_mask is not None:
+                    attention_mask = attention_mask.to(device)
+
+                outputs = model(inputs, attention_mask=attention_mask)
+                loss = loss_fn(outputs.view(-1, outputs.size(-1)), labels.view(-1))
+
             loss.backward()
 
             if (step + 1) % config["gradient_accumulation_steps"] == 0:
@@ -534,13 +565,62 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
 
             if step % 1000 == 0 and step > 0:
                 with open(os.path.join(PATHS["logs_dir"], f"{mode}_step{step}.log"), "w") as f:
-                    f.write(f"Step {step} loss: {avg_loss:.4f}\n")
+                    f.write(f"Step {step} loss: {avg_loss:.4f}\\n")
 
             if step % 5000 == 0 and step > 0:
                 ckpt_path = os.path.join(PATHS["checkpoint_dir"], f"rmkv_{mode}_step{step}.pt")
                 save_checkpoint(model, optimizer, epoch=epoch, global_step=step, filepath=ckpt_path)
 
             step += 1
+
+
+class SegmentedDataset(IterableDataset):
+    def __init__(self, tokenizer, source="fineweb", segment_len=128, segments_per_sample=8):
+        self.tokenizer = tokenizer
+        self.segment_len = segment_len
+        self.segments_per_sample = segments_per_sample
+        self.source = source
+
+        if source == "fineweb":
+            self.stream = iter(load_dataset("HuggingFaceFW/fineweb", name="CC-MAIN-2024-51", split="train", streaming=True))
+        elif source == "reasoning":
+            self.stream = iter(load_dataset("glaiveai/reasoning-v1-20m", split="train"))
+        else:
+            raise ValueError("Unsupported flow source")
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        tokens = []
+        while len(tokens) < self.segment_len * self.segments_per_sample:
+            try:
+                row = next(self.stream)
+                text = row.get("text", row.get("prompt", "") + " " + row.get("response", ""))
+                t = self.tokenizer.encode(text.strip())
+                tokens.extend(t)
+            except Exception:
+                continue  # skip bad rows
+
+        chunks = [tokens[i:i + self.segment_len] for i in range(0, len(tokens), self.segment_len)]
+        padded_chunks = []
+        attention_masks = []
+
+        for chunk in chunks[:self.segments_per_sample]:
+            padding_len = self.segment_len - len(chunk)
+            if padding_len > 0:
+                padded_chunk = chunk + [self.tokenizer.pad_token_id] * padding_len
+                mask = [1.0] * len(chunk) + [0.0] * padding_len
+            else:
+                padded_chunk = chunk[:self.segment_len]
+                mask = [1.0] * self.segment_len
+
+            padded_chunks.append(padded_chunk)
+            attention_masks.append(mask)
+
+        input_tensor = torch.tensor(padded_chunks, dtype=torch.long)
+        attention_mask = torch.tensor(attention_masks, dtype=torch.float)
+        return {"input_ids": input_tensor, "attention_mask": attention_mask}
 
 
 # -------------------------
@@ -559,61 +639,63 @@ def main(mode="pretrain"):
     - Saves the final model
 
     Args:
-        mode (str): "pretrain" or "finetune" - determines training configuration
+        mode (str): "focus", "flow", or "finetune" - determines training configuration
 
     Notes:
-        - Pretraining focuses on general language modeling from web text
-        - Finetuning focuses on instruction-following and reasoning capabilities
+        - focus: full sequence training without memory reuse
+        - flow: segmented training with memory reuse across segments
+        - finetune: instruction tuning on curated datasets
         - Learning rates, batch sizes, and dataset mixtures differ by mode
         - Automatically resumes from the latest checkpoint if available
     """
-    assert mode in ["pretrain", "finetune"], "Invalid mode"
-    config = PRETRAIN_CONFIG if mode == "pretrain" else FINETUNE_CONFIG
+    assert mode in ["focus", "flow", "finetune"], "Invalid mode"
+    is_flow = mode == "flow"
+    is_focus = mode == "focus"
+    config = PRETRAIN_CONFIG if mode in ["focus", "flow"] else FINETUNE_CONFIG
+
     torch.manual_seed(config["seed"])
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     tokenizer = RemarkableTokenizer(load_path=os.path.join(PATHS["tokenizer_dir"], "tokenizer.json"))
     model = RMKVModel(tokenizer.vocab_size_actual).to(device)
 
-    # Look for existing checkpoints to resume from
+    # === Checkpoint resume logic ===
     start_step = 0
     ckpts = [f for f in os.listdir(PATHS["checkpoint_dir"]) if f.startswith(f"rmkv_{mode}_step") and f.endswith(".pt")]
     if ckpts:
-        # Sort by step number to find the latest checkpoint
-        ckpts.sort(key=lambda f: int(re.findall(r'step(\d+)', f)[0]))
+        ckpts.sort(key=lambda f: int(re.findall(r'step(\\d+)', f)[0]))
         latest_ckpt = ckpts[-1]
         checkpoint_path = os.path.join(PATHS["checkpoint_dir"], latest_ckpt)
         if load_from_checkpoint(checkpoint_path, model, device):
-            start_step = int(re.findall(r'step(\d+)', latest_ckpt)[0])
+            start_step = int(re.findall(r'step(\\d+)', latest_ckpt)[0])
             print(f"[Resume] Loaded checkpoint: {latest_ckpt} at step {start_step}")
         else:
             print(f"[Warning] Failed to load checkpoint: {latest_ckpt}. Starting from scratch.")
 
-    if mode == "pretrain":
-        # Use our proper IterableDataset implementation for pretraining
-        # Weights: (5, 1, 1) prioritizes Fineweb data (web text) for general knowledge
+    # === Dataset and Dataloader setup ===
+    if is_focus:
         dataset = InterleaveDataset(tokenizer, True, MODEL_CONFIG["max_seq_len"], weights=(5, 1, 1))
         dataloader = DataLoader(dataset, batch_size=config["batch_size"])
+    elif is_flow:
+        dataset = SegmentedDataset(
+            tokenizer,
+            source="fineweb",  # can later add interleaving here too
+            segment_len=config["max_segment_len"],
+            segments_per_sample=8
+        )
+        dataloader = DataLoader(dataset, batch_size=config["batch_size"])
     else:
-        # SFT mode (Supervised Fine-Tuning) uses different data mixture
-        # Weights: (0, 2, 1) focuses on reasoning and instruction data only
         dataset = InterleaveDataset(tokenizer, False, MODEL_CONFIG["max_seq_len"], weights=(0, 2, 1))
         dataloader = DataLoader(dataset, batch_size=config["batch_size"])
 
+    # === Optimizer and Scheduler ===
     optimizer = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"])
 
-    # Calculate total training steps based on data size or max_steps config
     if config.get("max_steps"):
         num_training_steps = config["max_steps"]
     else:
-        # Estimate steps based on approximate dataset sizes and batch size
-        if mode == "pretrain":
-            # Approximate size of Fineweb dataset / (sequence_length * batch_size)
-            approx_steps_per_epoch = int(131200000000 / (MODEL_CONFIG["max_seq_len"] * config["batch_size"]))
-        else:
-            # Approximate size of reasoning dataset / (sequence_length * batch_size)
-            approx_steps_per_epoch = int(22000000 / (MODEL_CONFIG["max_seq_len"] * config["batch_size"]))
-        num_training_steps = approx_steps_per_epoch * config["num_epochs"]
+        approx_steps = 50000  # fallback
+        num_training_steps = approx_steps * config["num_epochs"]
 
     scheduler = get_cosine_schedule_with_warmup(
         optimizer,
@@ -621,13 +703,16 @@ def main(mode="pretrain"):
         num_training_steps=num_training_steps
     )
 
-    train(model, dataloader, optimizer, scheduler, device, config, tokenizer.pad_token_id, tokenizer, mode,
-          start_step=start_step)
+    # === Start training ===
+    train(
+        model, dataloader, optimizer, scheduler,
+        device, config, tokenizer.pad_token_id,
+        tokenizer, mode, start_step=start_step
+    )
 
+    # === Save final model ===
     save_path = os.path.join(PATHS["checkpoint_dir"], f"rmkv_{mode}_final.pt")
     save_checkpoint(model, optimizer, epoch=0, global_step=0, filepath=save_path)
-
-    # Also save as latest.pt for easy reference in run.py
     latest_path = os.path.join(PATHS["checkpoint_dir"], "rmkv_latest.pt")
     save_checkpoint(model, optimizer, epoch=0, global_step=0, filepath=latest_path)
 
@@ -639,6 +724,6 @@ if __name__ == "__main__":
     from training.checkpoint import load_from_checkpoint
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", type=str, choices=["pretrain", "finetune"], default="pretrain")
+    parser.add_argument("--mode", type=str, choices=["focus", "flow", "finetune"], default="focus")
     args = parser.parse_args()
     main(args.mode)

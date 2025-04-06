@@ -695,7 +695,7 @@ class RMKVModel(nn.Module):
 
         return token_ids
 
-    def generate_step(self, token_ids, memory):
+    def generate_step(self, token_ids, memory, attention_mask=None):
         """
         Process a single generation step for autoregressive text generation.
 
@@ -722,7 +722,7 @@ class RMKVModel(nn.Module):
         hidden_states = self.token_embed(token_tensor)
 
         for layer in self.layers:
-            hidden_states, memory = layer(hidden_states, memory, self.rope, None)
+            hidden_states, memory = layer(hidden_states, memory, self.rope, attention_mask)
 
         hidden_states = self.ln_final(hidden_states)
         logits = self.head(hidden_states)
