@@ -1,6 +1,6 @@
 # Remarkable Five: The RMKV Architecture
 
-**Remarkable Five** is an efficient, 1.2B-parameter causal language model built using a novel **RMKV (Recurrent Memory Key-Value)** architecture. This architecture combines transformer-style QKV attention with a recurrent memory module, offering a new balance of performance, efficiency, and long-term context handling.
+**Remarkable Five** is an efficient, ~600M-parameter causal language model built using a novel **RMKV (Recurrent Memory Key-Value)** architecture. This architecture combines transformer-style QKV attention with a recurrent memory module, offering a new balance of performance, efficiency, and long-term context handling.
 
 RMKV stands for "Recurrent Memory Key-Value"—a fusion of attention-based short-term modeling and RNN-based long-term memory updating. By maintaining a persistent set of memory tokens that evolve across layers, RMKV captures contextual information with linear memory scaling.
 
@@ -40,6 +40,7 @@ This design merges parallelizable training with efficient memory, making it suit
   - MinimalRNN (a lightweight custom recurrent cell with sigmoid gating)
 - **Advanced Attention Pooling**: Each memory token now has its own learnable query vector for more targeted information capture
 - **SigLU Activation**: Integration of SigLU (Sigmoid-weighted Linear Unit) for improved gating mechanisms
+- **Streaming Training Data**: Implementation of efficient data streaming from multiple sources with controlled mixing ratios
 
 ---
 
@@ -58,12 +59,12 @@ The RMKV model balances architectural novelty with practical usability.
 
 ## Model Summary
 
-- **Parameters:** ~1.2B
+- **Parameters:** ~600M (current configuration)
 - **Layers:** Configurable (e.g., 12 or 24 `RMKVBlock`s)
 - **Embedding Dim:** Defined in config
 - **Memory Tokens:** Fixed-length, learned and recurrently updated
 - **Positional Encoding:** Option for learned or sinusoidal (for very long sequences)
-- **Tokenizer:** ASCII-based custom tokenizer
+- **Tokenizer:** Custom BPE tokenizer trained on mixed data sources
 - **RNN Cell Options:** GRU, LSTM, or MinimalRNN
 
 ---
@@ -87,14 +88,22 @@ The model can use either:
 ### Parameter Efficiency
 The model includes a `count_parameters` method for transparency about model size.
 
+### Training Methodology
+The model employs a mixed-source data streaming approach:
+- Fineweb dataset for general language knowledge
+- Reasoning dataset for instruction-following and reasoning capabilities
+- Nemotron dataset for specialized knowledge (code, math, science)
+- Configurable mixing ratios for different training phases
+
 ---
 
 ## Future Roadmap
 
 - Synthetic data generation for instruction tuning
-- Enhanced tokenization (subword / hybrid approaches)
-- Fine-tuning with reinforcement learning (e.g., PPO)
-- Inference optimizations: quantization, LoRA, distillation
+- Test with MinimalRNN
+- ROPE testing
+- MoE testing
+- Fine-tuning with reinforcement learning
 - Expanded documentation and examples
-- Exploration of other recurrent cell architectures
 - Optimizations for very long context (>100K tokens)
+- Possible Inference optimizations: quantization, LoRA, distillation

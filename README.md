@@ -21,38 +21,30 @@ remarkable_five/
 ├── architecture.md             # Description of architecture
 ├── requirements.txt            # Python dependencies
 ├── config.py                   # Hyperparameters and configuration settings
-├── complete.py                 # run the model to do completions
-├── train.py                    # train the model
-├── train_tokenizer.py          # train the tokenizer
-├── checkpoints/                
-│   ├── rmkv_pretrain_epoch_*.pt    # Pretraining checkpoints
-│   ├── rmkv_finetune_epoch_*.pt    # Finetuning checkpoints
-│   ├── rmkv_pretrain_latest.pt     # Latest pretraining checkpoint
-│   ├── rmkv_finetune_latest.pt     # Latest finetuning checkpoint 
-│   ├── rmkv_latest.pt              # General latest checkpoint (backward compatibility)
-│   └── tokenizer.json              # result of tokenizer training
-├── logs/                       
-│   └── out.log                 # trainining logs (todo)
-├── training_data/              
-│   ├── *.txt                   # Training files
-│   └── *.md                    # Training files
+├── run.py                      # Run the model for inference (multiple modes)
+├── train_hf.py                 # Train the model using HuggingFace datasets
+├── train_tokenizer_hf.py       # Train the tokenizer with mixed data sources
+├── checkpoints/
+│   ├── rmkv_pretrain_step_.pt # Pretraining checkpoints
+│   ├── rmkv_finetune_step_.pt # Finetuning checkpoints
+│   ├── rmkv_pretrain_final.pt  # Final pretraining checkpoint
+│   ├── rmkv_finetune_final.pt  # Final finetuning checkpoint
+│   ├── rmkv_latest.pt          # General latest checkpoint
+│   └── tokenizer.json          # Trained tokenizer
+├── logs/
+│   └── *.log                   # Training logs
 ├── model/
-│   ├── __init__.py
-│   ├── rmkv.py                 # RMKV model architecture definition
-│   ├── layers.py               # Custom RMKV layers (QKV, recurrent memory cell)
-│   └── utils.py                # Helper functions for initialization and parameter counting
+│   ├── init.py
+│   └── rmkv.py                 # RMKV model architecture definition
 ├── data/
-│   ├── __init__.py
-│   ├── dataset.py              # Data loader for instruction-tuning data
-│   └── tokenizer.py            # Custom ASCII-based tokenizer
+│   ├── init.py
+│   └── tokenizer.py            # Custom BPE tokenizer
 ├── training/
-│   ├── __init__.py
-│   ├── trainer.py              # Training loop and logging
-│   ├── scheduler.py            # Learning rate scheduler helper
+│   ├── init.py
 │   └── checkpoint.py           # Model checkpoint save/load functions
 └── inference/
-    ├── __init__.py
-    └── infer.py                # Inference pipeline for text generation
+├── init.py
+└── infer.py                # Inference and text generation logic
 ```
 
 ## Setup
@@ -78,7 +70,7 @@ remarkable_five/
 ### Training
 Train tokenizer:
 ```bash
-python train_tokenizer.py
+python train_tokenizer_hf.py --vocab_size 30000 --max_samples 250000
 ```
 
 #### Pretraining
@@ -130,12 +122,33 @@ python train.py --mode finetune --data_dir /path/to/finetune_data
 ```
 
 ### Inference
-To generate text with a trained model:
-```bash
-python complete.py [--checkpoint <path_to_checkpoint>] [--prompt "hello world"] [--max_length=100]
+
+To run interactive inference in chat mode (persistent memory and history):
+```
+python run.py --mode chat --temperature 0.7 --top_p 0.9
+```
+To run in instruct mode (persistent memory only):
+```
+python run.py --mode instruct --temperature 0.7
+```
+To process a single prompt:
+```
+python run.py --mode single --prompt "Write a story about a robot discovering emotions." --temperature 0.8
 ```
 
 ## Training Configuration
+The model uses an efficient streaming data approach that combines multiple data sources:
+
+* Fineweb dataset: General web text for broad language understanding (primary source for pretraining)
+* Reasoning dataset: Structured reasoning examples with think-aloud problem solving
+* Nemotron dataset: Specialized instruction data covering code, math, science, and chat domains
+
+This mixed-source approach with configurable ratios allows balancing general knowledge with specialized capabilities. The training pipeline supports:
+
+* Interleaved streaming: Data is streamed and mixed on-the-fly to avoid loading entire datasets into memory
+* Weighted sampling: Different data sources are sampled at configured ratios (e.g., 5:1:1 for pretraining)
+* Dynamic iteration: Training can continue indefinitely on streaming data or set to a fixed number of steps
+
 The model uses different configurations for pretraining and finetuning:
 
 - **Pretraining**: Higher learning rate, larger batch size, more epochs

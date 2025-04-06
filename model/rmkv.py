@@ -4,11 +4,45 @@ import torch.nn as nn
 
 from config import MODEL_CONFIG
 
+# -----------------------------------------------------------------------------
+# RMKV Model: Recurrent Memory Key-Value Architecture
+# -----------------------------------------------------------------------------
+#
+# This file implements a hybrid architecture combining:
+# 1. Transformer-style QKV attention for parallelizable processing
+# 2. Recurrent memory tokens that evolve across layers and contexts
+# 3. Attention pooling to summarize sequence information for memory updates
+#
+# Key features:
+# - Memory tokens can attend to all tokens (global attention)
+# - Regular tokens use causal attention (can only see past tokens and memory)
+# - Memory is updated recurrently using a choice of cell types (GRU/LSTM/Minimal)
+# - Support for extremely long sequences through sinusoidal positional encodings
+# - Efficient inference with fixed memory size regardless of context length
+# -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
 # Sin/Cos Positional Encoding (supports very long sequences, e.g. 128k tokens)
 # -----------------------------------------------------------------------------
 def get_sinusoidal_encoding(seq_len, dim):
+    """
+    Creates sinusoidal positional encodings for a sequence.
+
+    Implements the positional encoding described in "Attention Is All You Need"
+    with sine and cosine functions of different frequencies. This approach
+    allows the model to generalize to sequence lengths not seen during training.
+
+    Args:
+        seq_len (int): Maximum sequence length
+        dim (int): Dimension of the embedding space
+
+    Returns:
+        Tensor of shape (1, seq_len, dim) containing positional encodings
+
+    Note:
+        The output is unsqueezed to allow for easy broadcasting during
+        addition to batched token embeddings.
+    """
     position = torch.arange(seq_len, dtype=torch.float32).unsqueeze(1)
     div_term = torch.exp(torch.arange(0, dim, 2, dtype=torch.float32) * -(math.log(10000.0) / dim))
     pe = torch.zeros(seq_len, dim, dtype=torch.float32)
@@ -22,21 +56,26 @@ def get_sinusoidal_encoding(seq_len, dim):
 # -----------------------------------------------------------------------------
 def get_causal_mask(memory_tokens, seq_len, attention_mask=None, device=None):
     """
-    Returns a causal mask for a combined sequence of length (memory_tokens + seq_len).
-    Memory tokens (indices [0, memory_tokens)) are unmasked.
-    For token rows (indices [memory_tokens, memory_tokens+seq_len)),
-    keys corresponding to future tokens (in the token part) are masked.
+    Creates a combined causal attention mask for memory tokens and sequence tokens.
+
+    This mask enables:
+      1. Memory tokens to attend to all memory tokens (fully connected)
+      2. Memory tokens to attend to all sequence tokens (cross-attention)
+      3. Sequence tokens to attend to memory tokens (cross-attention)
+      4. Sequence tokens to attend to previous sequence tokens only (causal self-attention)
+      5. Proper masking of padding tokens when attention_mask is provided
 
     Args:
-        memory_tokens: Number of memory tokens
-        seq_len: Number of sequence tokens
-        attention_mask: Optional (batch, seq_len) tensor with properly formatted mask values
-                        (0 for tokens, -1e9 for padding)
-        device: Device for the mask
+        memory_tokens (int): Number of memory tokens at the start of the sequence
+        seq_len (int): Number of actual input tokens (excluding memory tokens)
+        attention_mask: Optional tensor of shape (batch_size, seq_len) with properly
+                       formatted values (0 for tokens, -1e9 for padding)
+        device: Device for the mask tensor
 
     Returns:
-        A mask of shape (batch, 1, memory_tokens+seq_len, memory_tokens+seq_len) that can be added
-        to attention scores.
+        Tensor of shape (batch_size, 1, memory_tokens+seq_len, memory_tokens+seq_len)
+        that can be added to attention scores. Values are 0 for allowed attention
+        and -1e9 for positions that should not be attended to.
     """
     total_len = memory_tokens + seq_len
 
@@ -50,7 +89,8 @@ def get_causal_mask(memory_tokens, seq_len, attention_mask=None, device=None):
     # Start with an all-zero mask
     mask = torch.zeros(batch_size, total_len, total_len, device=device)
 
-    # Add causal masking for the token part
+    # Add causal masking only for the token part
+    # This allows memory tokens to freely attend to each other
     token_mask = torch.triu(torch.ones(seq_len, seq_len, device=device), diagonal=1) * (-1e9)
     mask[:, memory_tokens:, memory_tokens:] = token_mask
 
@@ -71,10 +111,27 @@ def get_causal_mask(memory_tokens, seq_len, attention_mask=None, device=None):
 
     return mask.unsqueeze(1)  # shape: (batch, 1, total_len, total_len)
 
+
 # -----------------------------------------------------------------------------
 # SigLU function (applies gating similar to GLU/SigLU)
 # -----------------------------------------------------------------------------
 def siglu(x):
+    """
+    Sigmoid-gated Linear Unit activation function.
+
+    Computes x * sigmoid(x), similar to GLU but using the same tensor
+    for both the value and the gate.
+
+    Args:
+        x (Tensor): Input tensor
+
+    Returns:
+        Tensor: Result of applying x * sigmoid(x)
+
+    Note:
+        This activation helps maintain gradient flow and introduces
+        a form of gating with minimal parameter overhead.
+    """
     return x * torch.sigmoid(x)
 
 
@@ -83,20 +140,33 @@ def siglu(x):
 # -----------------------------------------------------------------------------
 class MinimalRNNCell(nn.Module):
     """
-    A minimal recurrent cell that uses a simple gating mechanism.
+    A lightweight recurrent cell with simple gating mechanism.
+
+    This cell provides an efficient alternative to GRU and LSTM for memory updates.
     Given previous state h and input summary s, it computes:
         new_h = h * gate + (1 - gate) * siglu(candidate)
-    where gate and candidate are derived from a linear transformation
-    of [h, s].
+    where gate and candidate are derived from a linear transformation of [h, s].
+
+    Args:
+        embed_dim (int): Dimension of the memory state
+
+    Shape:
+        - Input h: (batch_size, embed_dim) - previous memory state
+        - Input s: (batch_size, embed_dim) - input summary
+        - Output: (batch_size, embed_dim) - updated memory state
+
+    Note:
+        Uses a siglu activation (sigmoid-gated linear unit) for the candidate
+        calculation, which helps maintain gradient flow during training.
     """
 
     def __init__(self, embed_dim):
         super(MinimalRNNCell, self).__init__()
         self.linear = nn.Linear(2 * embed_dim, 2 * embed_dim)
 
-    def forward(self, s, h):
+    def forward(self, h, s):
+        # h: previous memory state (batch, embed_dim)
         # s: input summary (batch, embed_dim)
-        # h: previous memory (batch, embed_dim)
         combined = torch.cat([h, s], dim=-1)
         update = self.linear(combined)
         gate, candidate = update.chunk(2, dim=-1)
@@ -111,8 +181,24 @@ class MinimalRNNCell(nn.Module):
 # -----------------------------------------------------------------------------
 class AttentionPooling(nn.Module):
     """
-    Uses a set of learnable query vectors (one per memory slot) to attend over the token outputs.
-    Produces a weighted summary for each memory token.
+    Attention-based pooling to create a contextual summary for memory updates.
+
+    Uses a set of learnable query vectors (one per memory slot) to attend
+    over the token representations, producing a weighted summary for each
+    memory token separately.
+
+    Args:
+        embed_dim (int): Dimension of token and memory embeddings
+        memory_tokens (int): Number of memory tokens (and thus query vectors)
+
+    Shape:
+        - Input x: (batch_size, seq_len, embed_dim) - token representations
+        - Input attention_mask: Optional (batch_size, seq_len) - mask for padding
+        - Output: (batch_size, memory_tokens, embed_dim) - context vectors for memory update
+
+    Note:
+        Each memory token gets its own learnable query vector, allowing specialized
+        information gathering for different aspects of the input context.
     """
 
     def __init__(self, embed_dim, memory_tokens):
@@ -147,10 +233,21 @@ class AttentionPooling(nn.Module):
 # -----------------------------------------------------------------------------
 class RecurrentMemoryCell(nn.Module):
     """
-    Wraps several cell types (GRU, LSTM, or minimal) to update memory tokens.
-    The interface always expects:
-       h: previous memory state, s: input summary.
-    """
+     Recurrent cell for updating memory tokens with contextual information.
+
+     Wraps different RNN cell types with a consistent interface that always takes:
+     - h: Previous memory state
+     - s: Input summary (contextual information)
+
+     Args:
+         embed_dim (int): Dimension of memory embeddings
+         cell_type (str): Type of cell to use: "gru", "lstm", or "minimal"
+
+     Note:
+         When using LSTM cells, only the hidden state (h) is tracked across
+         iterations; the cell state (c) is reset to zeros for each update.
+         This design choice prioritizes memory state consistency across cell types.
+     """
 
     def __init__(self, embed_dim, cell_type="GRU"):
         super(RecurrentMemoryCell, self).__init__()
@@ -165,22 +262,51 @@ class RecurrentMemoryCell(nn.Module):
             raise ValueError(f"Unsupported cell_type: {cell_type}")
 
     def forward(self, h, s):
-        # h: (batch, embed_dim), s: (batch, embed_dim)
+        """
+        Forward pass through the recurrent cell.
+        Args:
+            h: previous memory state (batch, embed_dim)
+            s: input summary (batch, embed_dim)
+        Returns:
+            new_h: updated memory state (batch, embed_dim)
+        """
         if self.cell_type == "lstm":
             # For LSTM, initialize cell state to zeros.
             c0 = torch.zeros_like(h)
             new_h, _ = self.cell(s, (h, c0))
             return new_h
-        else:
+        elif self.cell_type == "gru":
+            # GRU expects input first, then hidden state
             return self.cell(s, h)
+        else:
+            # Minimal RNN expects h then s
+            return self.cell(h, s)
 
 
 # -----------------------------------------------------------------------------
-# QKV Block 2 with optional causal masking
+# QKV Block with optional causal masking
 # -----------------------------------------------------------------------------
 class QKVBlock(nn.Module):
     """
-    A multi-head attention block that supports an optional attention mask.
+    Multi-head attention block for processing combined memory and token sequences.
+
+    Implements standard transformer-style attention with query, key, and value
+    projections, followed by scaled dot-product attention with optional masking.
+
+    Args:
+        embed_dim (int): Dimension of embeddings
+        num_heads (int): Number of attention heads
+        dropout (float): Dropout probability applied to attention weights
+
+    Shape:
+        - Input x: (batch_size, seq_len, embed_dim)
+        - Input mask: Optional (batch_size, 1, seq_len, seq_len) containing
+                     causal and padding masks combined
+        - Output: (batch_size, seq_len, embed_dim)
+
+    Note:
+        The mask is additive and should contain 0 for positions to attend to
+        and large negative values (e.g., -1e9) for positions to ignore.
     """
 
     def __init__(self, embed_dim, num_heads, dropout=0.1):
@@ -222,8 +348,24 @@ class QKVBlock(nn.Module):
 # -----------------------------------------------------------------------------
 class RMKVBlock(nn.Module):
     """
-    RMKV block.
-    Now incorporates causal masking and padding mask in the QKV block.
+    Core block of the RMKV architecture.
+
+    Each RMKV block processes both token embeddings and memory tokens through:
+    - Combined QKV attention with causal masking
+    - Memory token updating via attention pooling and recurrent cells
+
+    Args:
+        embed_dim (int): Dimension of token and memory embeddings
+        num_heads (int): Number of attention heads
+        memory_tokens (int): Number of memory tokens
+        dropout (float): Dropout probability
+        cell_type (str): Type of recurrent cell ("GRU", "LSTM", or "minimal")
+
+    Shape:
+        - Input tokens: (batch_size, seq_len, embed_dim)
+        - Input memory: (batch_size, memory_tokens, embed_dim)
+        - Output tokens: (batch_size, seq_len, embed_dim)
+        - Output memory: (batch_size, memory_tokens, embed_dim)
     """
 
     def __init__(self, embed_dim, num_heads, memory_tokens, dropout=0.1, cell_type="GRU"):
@@ -237,11 +379,29 @@ class RMKVBlock(nn.Module):
 
     def forward(self, x, memory, attention_mask=None):
         """
-        Args:
-          x: (batch, seq_len, embed_dim) token representations.
-          memory: (batch, memory_tokens, embed_dim) memory tokens.
-          attention_mask: (batch, seq_len) tensor with 1s for valid tokens and 0s for padding.
-        """
+           Process tokens and memory through one RMKV block.
+
+           Args:
+               x: Token representations of shape (batch_size, seq_len, embed_dim)
+               memory: Memory tokens of shape (batch_size, memory_tokens, embed_dim)
+               attention_mask: Optional mask of shape (batch_size, seq_len) with 1s for valid
+                              tokens and 0s for padding.
+
+           Returns:
+               tuple: (new_x, updated_memory) where:
+                   - new_x: Updated token representations (batch_size, seq_len, embed_dim)
+                   - updated_memory: Updated memory tokens (batch_size, memory_tokens, embed_dim)
+
+           Process flow:
+               1. Concatenate memory and tokens for joint processing
+               2. Apply LayerNorm for stability
+               3. Create a causal mask for the combined sequence
+               4. Process through QKV attention with the mask
+               5. Split result back into memory and token components
+               6. Use attention pooling to create summarized context for memory update
+               7. Update memory tokens with the recurrent cell
+               8. Apply residual connection for token outputs only
+           """
         batch_size, seq_len, _ = x.shape
 
         # 1. Concatenate memory and tokens.
@@ -267,6 +427,8 @@ class RMKVBlock(nn.Module):
         b, mt, d = updated_memory.shape
         updated_memory_flat = updated_memory.reshape(b * mt, d)
         summary_flat = summary.reshape(b * mt, d)
+
+        # FIXED: Pass parameters in the correct order (h, s) per RecurrentMemoryCell's signature
         updated_memory_flat = self.recurrent_cell(updated_memory_flat, summary_flat)
         updated_memory = updated_memory_flat.view(b, mt, d)
 
@@ -281,12 +443,29 @@ class RMKVBlock(nn.Module):
 # -----------------------------------------------------------------------------
 class RMKVModel(nn.Module):
     """
-    RMKVModel.
-    Supports:
-      - Option to use sin/cos positional embeddings (e.g. for sequences up to 128k tokens)
-      - Stacking RMKVBlock2 layers for long-range context
-      - Configurable recurrent cell type in RMKVBlock2 -- minimal rnn option
-      - Attention mask to handle padding tokens
+    RMKV (Recurrent Memory Key-Value) language model.
+
+    This model combines transformer-style attention with recurrent memory updates.
+    Each layer processes both token embeddings and memory tokens, where:
+    - Token embeddings follow a standard transformer flow with positional embeddings
+    - Memory tokens are shared across all examples in a batch and evolve recurrently
+    - Memory tokens can attend to all tokens, while regular tokens use causal attention
+
+    Args:
+        vocab_size (int): Size of vocabulary for token embeddings
+        model_config (dict): Configuration dictionary with the following keys:
+            - embed_dim (int): Dimension of token and memory embeddings
+            - num_heads (int): Number of attention heads
+            - num_layers (int): Number of RMKV blocks
+            - max_seq_len (int): Maximum sequence length
+            - memory_tokens (int): Number of memory tokens
+            - dropout (float): Dropout probability
+            - rnn_cell_type (str): Type of recurrent cell ("GRU", "LSTM", or "minimal")
+            - use_sincos (bool): Whether to use sinusoidal positional encoding
+
+    Shape:
+        - Input: (batch_size, seq_len) token indices
+        - Output: (batch_size, seq_len, vocab_size) logits
     """
 
     def __init__(self, vocab_size, model_config=MODEL_CONFIG):
@@ -309,7 +488,11 @@ class RMKVModel(nn.Module):
         self.initial_memory = nn.Parameter(torch.zeros(1, self.memory_tokens, embed_dim))
         nn.init.trunc_normal_(self.initial_memory, std=0.02)
 
-        # Stack RMKVBlock2 layers.
+        # Add positional embedding for memory tokens to help with inter-memory attention
+        self.memory_pos_embed = nn.Parameter(torch.zeros(1, self.memory_tokens, embed_dim))
+        nn.init.trunc_normal_(self.memory_pos_embed, std=0.02)
+
+        # Stack RMKVBlock layers.
         self.layers = nn.ModuleList([
             RMKVBlock(
                 embed_dim=embed_dim,
@@ -325,21 +508,44 @@ class RMKVModel(nn.Module):
         self.head = nn.Linear(embed_dim, vocab_size, bias=False)
 
     def count_parameters(self):
+        """
+        Count the total number of trainable parameters in the model.
+
+        Returns:
+            int: Total number of parameters
+
+        Note:
+            This is useful for model size reporting and resource estimation.
+        """
         return sum(p.numel() for p in self.parameters())
 
     def forward(self, input_ids, attention_mask=None):
         """
+        Forward pass through the RMKV model.
+
         Args:
-          input_ids: (batch, seq_len) tensor of token indices.
-          attention_mask: (batch, seq_len) tensor with properly formatted values
-                          (0 for real tokens, -1e9 for padding).
-                          Can be None during pretraining for efficiency.
-        Process:
-          1. Compute token embeddings and add positional information.
-          2. Initialize memory from learned initial_memory.
-          3. Process through stacked RMKVBlock2 layers.
-          4. Apply final normalization and project to logits.
+            input_ids: Tensor of shape (batch_size, seq_len) containing token indices
+            attention_mask: Optional tensor of shape (batch_size, seq_len) with properly
+                           formatted values (0 for real tokens, -1e9 for padding).
+                           Can be None during pretraining for efficiency.
+
+        Returns:
+            logits: Tensor of shape (batch_size, seq_len, vocab_size) containing output logits
+
+        Process flow:
+            1. Embed input tokens and add positional information
+            2. Initialize memory from learned parameters (shared across batch)
+            3. Process through stacked RMKV blocks, updating memory at each layer
+            4. Apply final LayerNorm and project to vocabulary logits
         """
+        # Ensure input_ids is a proper tensor
+        if not isinstance(input_ids, torch.Tensor):
+            input_ids = torch.tensor(input_ids, dtype=torch.long, device=next(self.parameters()).device)
+
+        # Make sure it's 2D (batch, seq_len)
+        if input_ids.dim() == 1:
+            input_ids = input_ids.unsqueeze(0)  # Add batch dimension
+
         batch_size, seq_len = input_ids.size()
 
         token_embeddings = self.token_embed(input_ids)  # (batch, seq_len, embed_dim)
@@ -350,10 +556,11 @@ class RMKVModel(nn.Module):
 
         x = token_embeddings + pos_embeddings
 
-        # Broadcast the initial memory for the batch.
+        # Broadcast the initial memory for the batch and add positional embeddings
         memory = self.initial_memory.expand(batch_size, -1, -1)
+        memory = memory + self.memory_pos_embed
 
-        # Process through each RMKVBlock2.
+        # Process through each RMKVBlock.
         for layer in self.layers:
             x, memory = layer(x, memory, attention_mask)
 
@@ -363,3 +570,76 @@ class RMKVModel(nn.Module):
         logits = self.head(x)
 
         return logits
+
+    def _ensure_tensor(self, token_ids, device=None):
+        """
+        Helper method to ensure token_ids is a properly formatted tensor.
+
+        Handles conversion from various input formats (int, list, tensor) to a
+        2D tensor suitable for model processing.
+
+        Args:
+            token_ids: Integer, list of integers, or tensor containing token IDs
+            device: Target device for the tensor (defaults to model's device)
+
+        Returns:
+            2D tensor of shape (batch_size, seq_len) containing token IDs
+
+        Note:
+            Single integers and 1D sequences are automatically expanded to include
+            a batch dimension.
+        """
+        if device is None:
+            device = next(self.parameters()).device
+
+        if not isinstance(token_ids, torch.Tensor):
+            token_ids = torch.tensor([token_ids] if isinstance(token_ids, int) else token_ids,
+                                     dtype=torch.long, device=device)
+        elif token_ids.device != device:
+            token_ids = token_ids.to(device)
+
+        # Make sure it's 2D (batch, seq_len)
+        if token_ids.dim() == 1:
+            token_ids = token_ids.unsqueeze(0)  # Add batch dimension
+
+        return token_ids
+
+    def generate_step(self, token_ids, memory):
+        """
+        Process a single generation step for autoregressive text generation.
+
+        Takes the current token sequence and memory state, and returns next-token
+        logits along with the updated memory state.
+
+        Args:
+            token_ids: List, tensor or single integer token ID(s)
+                      Will be automatically converted to a proper tensor
+            memory: Memory state tensor of shape (batch_size, memory_tokens, embed_dim)
+
+        Returns:
+            tuple: (logits, updated_memory) where:
+                - logits: Tensor of shape (batch_size, seq_len, vocab_size)
+                - updated_memory: Tensor of shape (batch_size, memory_tokens, embed_dim)
+
+        Note:
+            This method is optimized for inference and handles conversion of various
+            input formats to the required tensor shape.
+        """
+        # Standardize token_ids to be a proper tensor
+        token_tensor = self._ensure_tensor(token_ids)
+
+        token_embeddings = self.token_embed(token_tensor)
+        pos_embeddings = self.pos_embed[:, :token_tensor.size(1), :]
+
+        if pos_embeddings.device != token_embeddings.device:
+            pos_embeddings = pos_embeddings.to(token_embeddings.device)
+
+        hidden_states = token_embeddings + pos_embeddings
+
+        for layer in self.layers:
+            hidden_states, memory = layer(hidden_states, memory, None)
+
+        hidden_states = self.ln_final(hidden_states)
+        logits = self.head(hidden_states)
+
+        return logits, memory

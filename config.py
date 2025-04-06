@@ -19,7 +19,8 @@ PRETRAIN_CONFIG = {
     "learning_rate": 1e-4,
     "batch_size": 8,
     "weight_decay": 1e-2,
-    "num_epochs": 10,
+    "num_epochs": 10,                   # used for train.py
+    "max_steps": 30000,                 # used for train_hf.py
     "gradient_accumulation_steps": 4,   # Simulate larger batch sizes
     "warmup_steps": 1000,               # Number of warmup steps for the learning rate scheduler
     "max_grad_norm": 1.0,               # For gradient clipping
@@ -33,7 +34,7 @@ FINETUNE_CONFIG = {
     "learning_rate": 5e-5,              # Lower learning rate for finetuning
     "batch_size": 4,                    # Smaller batch size for more precise updates
     "weight_decay": 1e-2,
-    "num_epochs": 5,                    # Fewer epochs for finetuning
+    "num_epochs": 1,                    # Fewer epochs for finetuning
     "gradient_accumulation_steps": 4,
     "warmup_steps": 200,                # Fewer warmup steps for finetuning
     "max_grad_norm": 0.5,               # Stricter gradient clipping for stability

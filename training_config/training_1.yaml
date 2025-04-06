@@ -1,0 +1,1374 @@
+# Argument Evaluation
+---
+name: generated-argument-evaluation
+category_list_generation_prompt: "Provide a list of domains where arguments and reasoning are important."
+topic_list_generation_prompt: "Provide a list of specific arguments or claims within the ${category} domain that would benefit from critical evaluation. The argument or claim must be specific and have a premise and conclusion."
+dataset_prompt: "In the domain of ${category}, evaluate the statement: ```${topic}```"
+ollama_prompt: "${prompt} Identify the premises and conclusion. Assess whether the argument is deductive or inductive. Evaluate the logical structure, validity, and soundness. Identify any logical fallacies or weaknesses. Consider the strength of evidence and potential counterarguments. Provide an overall assessment of the argument's persuasiveness."
+mode: markdown
+think: true
+
+# Bedtime Stories
+---
+name: generated-bedtime
+category_list_generation_prompt: "Provide a list of fiction genres suitable for bedtime stories."
+topic_list_generation_prompt: "Provide a list of creative and original titles for bedtime stories in the ${category} genre. Do not use titles of real books."
+dataset_prompt: "Write a bedtime story called '${topic}' in the ${category} genre."
+ollama_prompt: "${prompt} Keep the language simple and appropriate for children. Include a moral or lesson. Keep the story between 400-600 words."
+mode: markdown
+
+# Scientific Explanations
+---
+name: generated-science
+category_list_generation_prompt: "Provide a list of scientific disciplines or fields."
+topic_list_generation_prompt: "Provide a list of specific phenomena, processes, or concepts within ${category} science."
+dataset_prompt: "Explain ${topic} in the field of ${category}."
+ollama_prompt: "${prompt} Begin with a clear definition. Explain the underlying scientific principles and mechanisms. Use analogies where appropriate to make complex concepts accessible. Address common misconceptions. Progress from fundamental to more nuanced aspects. The explanation should be scientifically accurate while remaining understandable to a non-specialist audience."
+mode: markdown
+
+# Visual Descriptions
+---
+name: generated-visual
+category_list_generation_prompt: "Provide a list of types of visuals (e.g., photographs, paintings, diagrams, scenes)."
+topic_list_generation_prompt: "Provide a list of specific subjects or concepts that would make interesting ${category} visuals."
+dataset_prompt: "Describe in detail what a ${category} of ${topic} would look like."
+ollama_prompt: "${prompt} Use vivid, specific language and sensory details. Organize the description logically (e.g., foreground to background, left to right, or general to specific). Be precise about spatial relationships, colors, textures, and proportions. The description should enable someone to clearly visualize the subject."
+mode: markdown
+
+# Biography Writing
+---
+name: generated-biography
+category_list_generation_prompt: "Provide a list of professional or achievement domains."
+topic_list_generation_prompt: "Provide a list of fictional character profiles who have achieved success in the ${category} domain."
+dataset_prompt: "Write a short biography of ${topic}, a fictional person known for achievements in ${category}."
+ollama_prompt: "${prompt} Include early life and background, key formative experiences, major achievements and contributions, challenges overcome, and legacy or impact. Present a coherent narrative arc while highlighting defining characteristics and motivations. The biography should be 500-700 words."
+mode: markdown
+
+# History Narratives
+---
+name: generated-history
+category_list_generation_prompt: "Provide a list of historical periods or eras."
+topic_list_generation_prompt: "Provide a list of important historical developments, movements, or phenomena during the ${category} period."
+dataset_prompt: "Write a historical narrative about ${topic} during the ${category} period."
+ollama_prompt: "${prompt} Present a chronological account with appropriate context. Include key figures, events, and developments. Explain causes and effects of historical changes. Balance factual information with engaging storytelling. The narrative should be both informative and compelling."
+mode: markdown
+
+# Quiz Generation
+---
+name: generated-quizzes
+category_list_generation_prompt: "Provide a list of academic or knowledge domains suitable for educational quizzes."
+topic_list_generation_prompt: "Provide a list of specific topics within ${category} that would make good quiz subjects."
+dataset_prompt: "Create a 10-question quiz about ${topic} in the ${category} domain."
+ollama_prompt: "${prompt} Include a mix of question types (multiple choice, true/false, fill-in-the-blank, short answer). Vary difficulty levels from basic recall to application or analysis. Provide clear, concise questions and comprehensive answer explanations that include why incorrect options are wrong."
+mode: markdown
+
+# Letter Writing
+---
+name: generated-letters
+category_list_generation_prompt: "Provide a list of letter types or purposes (e.g., business, personal, complaint, recommendation)."
+topic_list_generation_prompt: "Provide a list of specific scenarios that would require a ${category} letter."
+dataset_prompt: "Write a ${category} letter for this scenario: ${topic}"
+ollama_prompt: "${prompt} Follow appropriate formatting and conventions for the letter type. Use language and tone suitable for the purpose and audience. Include all necessary components (greeting, body, closing, signature). The letter should effectively accomplish its intended purpose while maintaining professionalism or appropriate tone."
+mode: markdown
+
+# Debate Preparation
+---
+name: generated-debate-prep
+category_list_generation_prompt: "Provide a list of debatable topics suitable for formal debate."
+topic_list_generation_prompt: "Provide a list of specific positions or resolutions related to ${category} that could be formally debated."
+dataset_prompt: "Prepare debate arguments for both sides of this resolution: ${topic} related to ${category}."
+ollama_prompt: "${prompt} For each side, provide a clear thesis statement, 3-4 main arguments with supporting evidence, anticipated counterarguments with rebuttals, and a compelling conclusion. Include potential sources or examples that could strengthen each position. The preparation should be balanced, giving equal strength to both sides."
+mode: markdown
+think: true
+
+# Philosophical Discussions
+---
+name: generated-philosophy
+category_list_generation_prompt: "Provide a list of philosophical areas or branches."
+topic_list_generation_prompt: "Provide a list of specific philosophical questions or concepts within ${category} philosophy."
+dataset_prompt: "Write a philosophical discussion of ${topic} in ${category} philosophy."
+ollama_prompt: "${prompt} Present multiple perspectives on the issue. Analyze key arguments, counterarguments, and their implications. Reference relevant philosophers or schools of thought. Explore nuances and tensions within the topic. The discussion should demonstrate critical thinking and conceptual analysis rather than arguing for a single position."
+mode: markdown
+think: true
+
+# Email Writing
+---
+name: generated-emails
+category_list_generation_prompt: "Provide a list of email purposes or contexts (e.g., professional, customer service, networking)."
+topic_list_generation_prompt: "Provide a list of specific scenarios that would require a ${category} email."
+dataset_prompt: "Write an email for this ${category} scenario: ${topic}"
+ollama_prompt: "${prompt} Include an appropriate subject line, greeting, and closing. Use language and tone suitable for the context and relationship with the recipient. Be clear, concise, and focused on the purpose. The email should effectively convey its message while maintaining appropriate professional or personal conventions."
+mode: markdown
+
+# User Guides
+---
+name: generated-user-guides
+category_list_generation_prompt: "Provide a list of product or system types that require user documentation."
+topic_list_generation_prompt: "Provide a list of specific fictional products or systems within the ${category} type."
+dataset_prompt: "Write a user guide section for ${topic}, a ${category} product/system."
+ollama_prompt: "${prompt} Include purpose of the feature/function, step-by-step instructions with clear action items, visual descriptions of interface elements, tips for optimal use, troubleshooting common issues, and relevant warnings or cautions. Use clear, concise language oriented toward task completion."
+mode: markdown
+
+# Creative Brief
+---
+name: generated-creative-briefs
+category_list_generation_prompt: "Provide a list of creative project types (e.g., advertising campaign, brand identity, video production)."
+topic_list_generation_prompt: "Provide a list of specific fictional brands or products that would need a ${category} project."
+dataset_prompt: "Write a creative brief for a ${category} project for ${topic}."
+ollama_prompt: "${prompt} Include project background, objectives, target audience, key message, brand voice/tone, deliverables, timeline, budget considerations, and success metrics. Be specific and actionable while allowing creative flexibility. The brief should provide clear direction while inspiring innovative thinking."
+mode: markdown
+
+# Self-Help Advice
+---
+name: generated-self-help
+category_list_generation_prompt: "Provide a list of personal development or self-improvement areas."
+topic_list_generation_prompt: "Provide a list of specific challenges or goals within the ${category} area of personal development."
+dataset_prompt: "Write self-help advice for someone dealing with ${topic} in the ${category} area."
+ollama_prompt: "${prompt} Offer empathetic understanding of the challenge. Provide practical, actionable strategies rather than vague platitudes. Include both immediate steps and long-term approaches. Balance optimism with realism. The advice should be supportive, non-judgmental, and focused on empowerment."
+mode: markdown
+
+# Game Rules
+---
+name: generated-game-rules
+category_list_generation_prompt: "Provide a list of game types or genres."
+topic_list_generation_prompt: "Provide a list of specific fictional game concepts within the ${category} game type."
+dataset_prompt: "Write the rules for ${topic}, a fictional ${category} game."
+ollama_prompt: "${prompt} Include components/materials needed, setup instructions, turn structure, core mechanics, winning conditions, and variants if applicable. Organize with clear sections and use examples to illustrate complex interactions. The rules should be comprehensive but accessible to new players."
+mode: markdown
+
+# Lesson Plans
+---
+name: generated-lesson-plans
+category_list_generation_prompt: "Provide a list of academic subjects or educational areas."
+topic_list_generation_prompt: "Provide a list of specific concepts or skills within ${category} that would make good lesson topics."
+dataset_prompt: "Create a lesson plan for teaching ${topic} in ${category}."
+ollama_prompt: "${prompt} Include learning objectives, prerequisite knowledge, materials needed, warm-up activity, main instruction/content delivery, guided practice, independent practice, assessment method, and extension/enrichment options. Design for a specific age/grade level and time duration. The plan should be structured, engaging, and educationally sound."
+mode: markdown
+
+# Menu Planning
+---
+name: generated-menus
+category_list_generation_prompt: "Provide a list of cuisine types or dining occasions."
+topic_list_generation_prompt: "Provide a list of specific themes or concepts for ${category} menus."
+dataset_prompt: "Create a ${category} menu with the theme: ${topic}"
+ollama_prompt: "${prompt} Include appetizers, main courses, sides, desserts, and beverages as appropriate for the cuisine/occasion. Provide brief, appealing descriptions for each item. Ensure balance and cohesion across the menu while highlighting the theme. Consider dietary options where appropriate."
+mode: markdown
+
+# Marketing Plans
+---
+name: generated-marketing
+category_list_generation_prompt: "Provide a list of industry sectors or markets."
+topic_list_generation_prompt: "Provide a list of specific fictional products or services within the ${category} sector that would need marketing."
+dataset_prompt: "Create a marketing plan for ${topic}, a product/service in the ${category} sector."
+ollama_prompt: "${prompt} Include situation analysis, target audience definition, unique selling proposition, marketing objectives, strategies and tactics across channels, budget considerations, timeline, and success metrics. Be specific and actionable while considering market realities."
+mode: markdown
+
+# Fitness Programs
+---
+name: generated-fitness
+category_list_generation_prompt: "Provide a list of fitness goals or training types."
+topic_list_generation_prompt: "Provide a list of specific fitness programs tailored to ${category} goals."
+dataset_prompt: "Design a fitness program for ${topic} focused on ${category} goals."
+ollama_prompt: "${prompt} Include program duration, frequency, exercise selection with sets/reps/intensity, progression plan, rest/recovery considerations, and modifications for different fitness levels. Balance different training components as appropriate for the goals. Include a disclaimer about consulting health professionals."
+mode: markdown
+
+# Blog Posts
+---
+name: generated-blog
+category_list_generation_prompt: "Provide a list of popular blog categories or niches."
+topic_list_generation_prompt: "Provide a list of specific, interesting topics within the ${category} niche that would make good blog posts."
+dataset_prompt: "Write a blog post about ${topic} in the ${category} niche."
+ollama_prompt: "${prompt} Include a catchy headline, introduction, 3-5 key points, and a conclusion. The post should be between 600-800 words."
+mode: markdown
+
+# Book Facts
+---
+name: generated-book-facts
+category_list_generation_prompt: "Provide a list of book genres."
+topic_list_generation_prompt: "Provide a list of famous books in the ${category} genre."
+dataset_prompt: "Share 5 interesting facts about '${topic}', a book in the ${category} genre."
+ollama_prompt: "${prompt} Include information about the author, publication history, critical reception, cultural impact, and interesting trivia. Be accurate and concise."
+mode: markdown
+
+# Campfire Stories
+---
+name: generated-campfire
+category_list_generation_prompt: "Provide a list of campfire story genres (e.g., scary, funny, adventure, mystery)."
+topic_list_generation_prompt: "Provide a list of creative and original themes or titles for campfire stories in the ${category} genre."
+dataset_prompt: "Tell a campfire story about '${topic}' in the ${category} genre."
+ollama_prompt: "${prompt} Use vivid descriptions and sensory details. Include moments of suspense or surprise. Keep the language engaging but appropriate for a mixed-age audience around a campfire. The story should be between 500-700 words."
+mode: markdown
+
+# Children's Stories
+---
+name: generated-children
+category_list_generation_prompt: "Provide a list of children's story types or themes."
+topic_list_generation_prompt: "Provide a list of creative and original characters or scenarios for children's stories with a ${category} theme."
+dataset_prompt: "Write a children's story about '${topic}' with a ${category} theme."
+ollama_prompt: "${prompt} Use simple language appropriate for children aged 4-8. Include colorful descriptions, dialogue, and a clear moral lesson. The story should be between 300-500 words."
+mode: markdown
+
+# Common Sense Thought Processes
+---
+name: generated-common-sense
+category_list_generation_prompt: "Provide a list of everyday scenarios requiring common sense reasoning."
+topic_list_generation_prompt: "Provide a list of specific situations within the ${category} scenario that require common sense thinking."
+dataset_prompt: "Describe the common sense thought process for handling this situation: ${topic} in a ${category} scenario."
+ollama_prompt: "${prompt} Break down the reasoning step by step. Explain the implicit knowledge being used and how it applies to the situation. Consider different perspectives and possible outcomes."
+mode: markdown
+think: true
+
+# Debate Transcripts
+---
+name: generated-debate
+category_list_generation_prompt: "Provide a list of debate topics suitable for academic or public discourse."
+topic_list_generation_prompt: "Provide a list of specific, nuanced questions related to the ${category} topic that would make for interesting debates."
+dataset_prompt: "Write a transcript of a debate on the question: '${topic}' related to ${category}."
+ollama_prompt: "${prompt} Include opening statements, rebuttals, cross-examinations, and closing arguments from two opposing perspectives. Present strong arguments for both sides without showing bias. Format as a proper transcript with speaker labels."
+mode: markdown
+
+# ELI5 (Explain Like I'm Five)
+---
+name: generated-eli5
+topic_list_generation_prompt: "Provide a list of complex topics, concepts, or phenomena that would benefit from simplified explanations."
+dataset_prompt: "Explain ${topic} like I'm five years old."
+ollama_prompt: "${prompt} Use simple words, helpful analogies, and concrete examples. Avoid technical terms and keep sentences short. The explanation should be 150-250 words."
+mode: direct
+
+# Example Generation
+---
+name: generated-examples
+category_list_generation_prompt: "Provide a list of concept categories that benefit from examples (e.g., grammar rules, programming concepts, math principles)."
+topic_list_generation_prompt: "Provide a list of specific concepts within the ${category} category that would benefit from clear examples."
+dataset_prompt: "Generate 3 examples that illustrate ${topic} in the ${category} category."
+ollama_prompt: "${prompt} For each example, provide context, the example itself, and an explanation of why it's a good illustration of the concept. Ensure the examples range from simple to complex."
+mode: markdown
+
+# High School Level Explanations
+---
+name: generated-high-school
+category_list_generation_prompt: "Provide a list of academic subjects taught in high school."
+topic_list_generation_prompt: "Provide a list of specific concepts or topics within ${category} that are taught at the high school level."
+dataset_prompt: "Explain ${topic} at a high school level, in the subject of ${category}."
+ollama_prompt: "${prompt} Use vocabulary appropriate for grades 9-12. Include key definitions, core principles, and 1-2 examples. Relate the concept to real-world applications when possible. The explanation should be 300-500 words."
+mode: markdown
+
+# College Level Explanations
+---
+name: generated-college
+category_list_generation_prompt: "Provide a list of academic subjects taught at college level."
+topic_list_generation_prompt: "Provide a list of specific concepts, theories, or topics within ${category} that are taught at the undergraduate college level."
+dataset_prompt: "Explain ${topic} at a college undergraduate level, in the subject of ${category}."
+ollama_prompt: "${prompt} Use appropriate academic vocabulary and assume prior knowledge of fundamental concepts in the field. Include theoretical frameworks, critical analysis, and practical applications. Reference major works or researchers when relevant. The explanation should be 500-700 words."
+mode: markdown
+
+# Doctorate Level Explanations
+---
+name: generated-doctorate
+category_list_generation_prompt: "Provide a list of academic disciplines with doctoral programs."
+topic_list_generation_prompt: "Provide a list of advanced concepts, theories, or research areas within ${category} that are studied at the doctorate level."
+dataset_prompt: "Explain ${topic} at a doctorate level, in the discipline of ${category}."
+ollama_prompt: "${prompt} Present a sophisticated analysis that addresses theoretical nuances, methodological considerations, and current debates in the field. Reference seminal and recent literature. Include critical evaluation of competing perspectives and identify areas for further research. The explanation should be 700-1000 words."
+mode: markdown
+think: true
+
+# Extract Information from Long Form Text
+---
+name: generated-information-extraction
+category_list_generation_prompt: "Provide a list of types of long-form texts (e.g., research papers, legal documents, technical manuals)."
+topic_list_generation_prompt: "Provide a list of specific information types that might need to be extracted from ${category} documents."
+dataset_prompt: "Given a ${category} document, extract all ${topic} information."
+ollama_prompt: "${prompt} Identify and organize the requested information systematically. Present it in a structured format with appropriate headings. Include only relevant information and maintain the original meaning and context."
+mode: markdown
+
+# Fill in the Blank Problems
+---
+name: generated-fill-blank
+category_list_generation_prompt: "Provide a list of subject areas suitable for fill-in-the-blank exercises."
+topic_list_generation_prompt: "Provide a list of specific topics within the ${category} subject that would work well for fill-in-the-blank exercises."
+dataset_prompt: "Solve this fill-in-the-blank problem about ${topic} in ${category}: [Problem text with blank]"
+ollama_prompt: "${prompt} First identify what concept or knowledge is being tested. Then analyze the context surrounding the blank. Consider all possible answers and select the most appropriate one based on grammar, meaning, and subject matter knowledge. Explain your reasoning."
+mode: direct
+think: true
+
+# Multiple Choice Fill in the Blank Problems
+---
+name: generated-multiple-choice
+category_list_generation_prompt: "Provide a list of subject areas suitable for multiple-choice exercises."
+topic_list_generation_prompt: "Provide a list of specific topics within the ${category} subject that would work well for multiple-choice questions."
+dataset_prompt: "Solve this multiple-choice problem about ${topic} in ${category}: [Problem text with options A, B, C, D]"
+ollama_prompt: "${prompt} Analyze each option systematically. Eliminate incorrect options by explaining why they don't fit. Identify the correct answer and provide a clear explanation for why it's the best choice."
+mode: direct
+think: true
+
+# Multiple-Blank Fill in the Blank Problems
+---
+name: generated-multiple-blanks
+category_list_generation_prompt: "Provide a list of subject areas suitable for multiple-blank exercises."
+topic_list_generation_prompt: "Provide a list of specific topics within the ${category} subject that would work well for multiple-blank fill-in exercises."
+dataset_prompt: "Solve this multiple-blank problem about ${topic} in ${category}: [Problem text with multiple blanks]"
+ollama_prompt: "${prompt} Address each blank separately and in sequence. For each blank, analyze the surrounding context and identify what's being asked. After filling all blanks, review the complete answer to ensure consistency and accuracy across all filled blanks."
+mode: direct
+think: true
+
+# Food Experience Stories
+---
+name: generated-food-stories
+category_list_generation_prompt: "Provide a list of food-related experiences or scenarios."
+topic_list_generation_prompt: "Provide a list of specific food items, cuisines, or dishes related to the ${category} experience."
+dataset_prompt: "Write a story about experiencing ${topic} in a ${category} scenario."
+ollama_prompt: "${prompt} Use rich sensory descriptions, especially related to taste, smell, and texture. Include cultural context and personal reactions. Evoke the emotions associated with the food experience. The story should be 400-600 words."
+mode: markdown
+
+# Data Reformatting
+---
+name: generated-reformatting
+category_list_generation_prompt: "Provide a list of data format pairs (e.g., 'JSON to CSV', 'Markdown to HTML', 'YAML to JSON')."
+topic_list_generation_prompt: "Provide a list of data types or structures that might need conversion from one format to another within the ${category} conversion."
+dataset_prompt: "Convert this ${topic} data from ${category}."
+ollama_prompt: "${prompt} First, identify the key structural elements in the source format. Then, systematically translate each element to the equivalent structure in the target format. Maintain all data integrity during conversion. Explain the conversion process and highlight any special handling required."
+mode: direct
+
+# Historical Event Articles
+---
+name: generated-history-articles
+category_list_generation_prompt: "Provide a list of historical periods or eras."
+topic_list_generation_prompt: "Provide a list of significant historical events that occurred during the ${category} period."
+dataset_prompt: "Write an article about ${topic}, a significant event from the ${category} period."
+ollama_prompt: "${prompt} Include context, causes, key figures, immediate outcomes, and long-term historical significance. Be factual and balanced in your presentation. The article should be 600-800 words and organized with appropriate subheadings."
+mode: markdown
+
+# How-to Guides
+---
+name: generated-howtos
+category_list_generation_prompt: "Provide a list of broad areas where how-to guides would be useful (e.g., cooking, home repair, technology)."
+topic_list_generation_prompt: "Provide a list of specific tasks within the ${category} area that would benefit from step-by-step instructions."
+dataset_prompt: "Write a how-to guide for ${topic} in the ${category} area."
+ollama_prompt: "${prompt} Include a materials/prerequisites list, clear numbered steps, tips for success, troubleshooting common issues, and a conclusion. Use precise instructions and explain the reason behind important steps. The guide should be comprehensive but concise."
+mode: markdown
+
+# Instruction Following Tasks
+---
+name: generated-instructions
+category_list_generation_prompt: "Provide a list of domains where following specific instructions is important."
+topic_list_generation_prompt: "Provide a list of specific tasks within the ${category} domain that require following precise instructions."
+dataset_prompt: "Follow these instructions for ${topic} in the ${category} domain: [Instructions]"
+ollama_prompt: "${prompt} Read the entire set of instructions before beginning. Proceed methodically through each instruction in the given order. If instructions are ambiguous, make reasonable assumptions and explain them. Confirm completion of each step before moving to the next."
+mode: direct
+
+# Jokes
+---
+name: generated-jokes
+category_list_generation_prompt: "Provide a list of joke types or styles (e.g., puns, one-liners, knock-knock jokes)."
+topic_list_generation_prompt: "Provide a list of topics or themes that would work well for ${category} jokes."
+dataset_prompt: "Write a ${category} joke about ${topic}."
+ollama_prompt: "${prompt} Keep it clean and appropriate for general audiences. Ensure the joke has a clear setup and punchline. Be original and creative within the constraints of the joke style."
+mode: direct
+
+# Poems
+---
+name: generated-poems
+category_list_generation_prompt: "Provide a list of poetry forms and styles."
+topic_list_generation_prompt: "Provide a list of themes or subjects that would work well for ${category} poetry."
+dataset_prompt: "Write a ${category} poem about ${topic}."
+ollama_prompt: "${prompt} Adhere to the formal requirements of the specified poetic form. Use vivid imagery, appropriate rhythm, and thoughtful word choice. Aim for emotional resonance while maintaining technical precision."
+mode: markdown
+
+# Songs
+---
+name: generated-songs
+category_list_generation_prompt: "Provide a list of music genres or song styles."
+topic_list_generation_prompt: "Provide a list of themes or subjects that would work well for songs in the ${category} genre."
+dataset_prompt: "Write lyrics for a ${category} song about ${topic}."
+ollama_prompt: "${prompt} Include a verse-chorus structure appropriate to the genre. Pay attention to rhythm, rhyme, and singability. Capture the emotional essence of the topic while maintaining the stylistic elements of the genre."
+mode: markdown
+
+# Math Problems
+---
+name: generated-math
+category_list_generation_prompt: "Provide a list of mathematical domains or subject areas."
+topic_list_generation_prompt: "Provide a list of specific concepts or problem types within ${category} mathematics."
+dataset_prompt: "Solve this math problem about ${topic} in the field of ${category}: [Problem statement]"
+ollama_prompt: "${prompt} Work through the solution step by step, explaining each mathematical operation and the reasoning behind it. Show all work clearly. Verify the answer by checking it against the original problem."
+mode: markdown
+think: true
+
+# Movie Facts
+---
+name: generated-movie-facts
+category_list_generation_prompt: "Provide a list of film genres."
+topic_list_generation_prompt: "Provide a list of famous movies in the ${category} genre."
+dataset_prompt: "Share 5 interesting facts about '${topic}', a movie in the ${category} genre."
+ollama_prompt: "${prompt} Include information about production, casting, critical reception, box office performance, and cultural impact or legacy. Be accurate and provide specific details rather than general statements."
+mode: markdown
+
+# Paraphrase Sentences
+---
+name: generated-paraphrase
+category_list_generation_prompt: "Provide a list of writing styles or tones (e.g., formal, casual, technical)."
+topic_list_generation_prompt: "Provide a list of subject areas where sentence paraphrasing in a ${category} style would be useful."
+dataset_prompt: "Paraphrase this sentence about ${topic} in a ${category} style: [Original sentence]"
+ollama_prompt: "${prompt} Maintain the core meaning of the original sentence while changing the vocabulary and sentence structure. Ensure the paraphrase matches the requested style or tone. Provide both the original and paraphrased versions for comparison."
+mode: direct
+
+# Podcast Scripts
+---
+name: generated-podcast
+category_list_generation_prompt: "Provide a list of podcast genres or formats."
+topic_list_generation_prompt: "Provide a list of specific topics that would make interesting episodes for a ${category} podcast."
+dataset_prompt: "Write a script for a ${category} podcast episode about ${topic}."
+ollama_prompt: "${prompt} Include an engaging introduction, clear segment structure, natural-sounding dialogue, and a compelling conclusion. Use the conversational tone appropriate for podcasts while maintaining informational accuracy. The script should be for a 15-20 minute episode."
+mode: markdown
+
+# Python Solutions
+---
+name: generated-python
+category_list_generation_prompt: "Provide a list of programming domains or problem types commonly solved with Python."
+topic_list_generation_prompt: "Provide a list of specific programming challenges or tasks within the ${category} domain that can be solved with Python."
+dataset_prompt: "Write a Python solution for this ${topic} problem in the ${category} domain: [Problem description]"
+ollama_prompt: "${prompt} Begin with a comment block explaining your approach. Write clean, well-documented code with appropriate variable names. Include error handling where necessary. After the code, explain any key algorithms or libraries used and analyze the time and space complexity."
+mode: markdown
+
+# Regex Generation
+---
+name: generated-regex
+category_list_generation_prompt: "Provide a list of data validation or text processing domains where regex is commonly used."
+topic_list_generation_prompt: "Provide a list of specific pattern matching tasks within the ${category} domain that would require regex."
+dataset_prompt: "Generate a regular expression for matching ${topic} patterns in ${category} data."
+ollama_prompt: "${prompt} Provide the regex pattern, explain each component of the pattern, give examples of strings that would match and strings that wouldn't match, and discuss any edge cases or limitations of the pattern."
+mode: markdown
+
+# Short Fiction Scenes
+---
+name: generated-fiction-scenes
+category_list_generation_prompt: "Provide a list of fiction genres."
+topic_list_generation_prompt: "Provide a list of specific scene types or scenarios that would appear in ${category} fiction."
+dataset_prompt: "Write a ${category} fiction scene about ${topic}."
+ollama_prompt: "${prompt} Focus on creating a vivid setting, believable dialogue, and character development appropriate to the genre. Show rather than tell through sensory details and character actions. The scene should be 500-700 words."
+mode: markdown
+
+# Sentiment Analysis
+---
+name: generated-sentiment
+category_list_generation_prompt: "Provide a list of contexts where sentiment analysis would be applied (e.g., product reviews, social media posts, news articles)."
+topic_list_generation_prompt: "Provide a list of specific themes or subjects within ${category} that would be interesting for sentiment analysis."
+dataset_prompt: "Identify the sentiment in this ${category} text about ${topic}: [Text sample]"
+ollama_prompt: "${prompt} Analyze the text for positive, negative, or neutral sentiment. Identify key words and phrases that indicate sentiment. Consider context, tone, and potential cultural nuances. Provide a sentiment score and brief explanation for your assessment."
+mode: direct
+
+# TV Show Scripts
+---
+name: generated-tv-scripts
+category_list_generation_prompt: "Provide a list of TV show genres."
+topic_list_generation_prompt: "Provide a list of specific scenarios or episode concepts that would work well in a ${category} TV show."
+dataset_prompt: "Write a script for a ${category} TV show episode about ${topic}."
+ollama_prompt: "${prompt} Follow standard screenplay format. Include scene descriptions, character dialogue, and stage directions. Create natural dialogue that fits the genre and advances the plot. The script should be for a scene of approximately 3-5 minutes of screen time."
+mode: markdown
+
+# Slice of Life Scenes
+---
+name: generated-slice-of-life
+category_list_generation_prompt: "Provide a list of everyday settings or environments."
+topic_list_generation_prompt: "Provide a list of ordinary activities or interactions that occur in a ${category} setting."
+dataset_prompt: "Write a slice-of-life scene about ${topic} in a ${category} setting."
+ollama_prompt: "${prompt} Focus on authentic details, realistic dialogue, and subtle character development. Capture the beauty or meaning in ordinary moments. The scene should feel genuine rather than dramatic or sensationalized. Aim for 400-600 words."
+mode: markdown
+
+# SQL Solutions
+---
+name: generated-sql
+category_list_generation_prompt: "Provide a list of database use cases or scenarios."
+topic_list_generation_prompt: "Provide a list of specific database tasks or queries related to ${category} scenarios."
+dataset_prompt: "Write SQL code to ${topic} in a ${category} database scenario."
+ollama_prompt: "${prompt} Begin with comments explaining the database structure and the goal of the query. Write clean, efficient SQL with proper indentation. After the code, explain the query's logic, any performance considerations, and alternative approaches if relevant."
+mode: markdown
+
+# Long Fiction
+---
+name: generated-long-fiction
+category_list_generation_prompt: "Provide a list of fiction genres suitable for longer narratives."
+topic_list_generation_prompt: "Provide a list of compelling premises or storylines for ${category} fiction."
+dataset_prompt: "Write the opening chapter of a ${category} novel with this premise: ${topic}"
+ollama_prompt: "${prompt} Establish the setting, introduce main characters, and set up the central conflict. Use descriptive language appropriate to the genre. Balance dialogue, action, and exposition. Create a hook that would make readers want to continue. The chapter should be 1000-1500 words."
+mode: markdown
+
+# Fiction Summaries
+---
+name: generated-fiction-summaries
+category_list_generation_prompt: "Provide a list of fiction genres."
+topic_list_generation_prompt: "Provide a list of fictional plot scenarios in the ${category} genre."
+dataset_prompt: "Summarize this fictional ${category} story: [Story about ${topic}]"
+ollama_prompt: "${prompt} Provide a concise overview of the plot, main characters, setting, central conflicts, and resolution. Capture the essence of the story without unnecessary details. The summary should be 250-350 words."
+mode: markdown
+
+# Elementary School Textbook
+---
+name: generated-elementary-textbook
+category_list_generation_prompt: "Provide a list of subjects taught in elementary school."
+topic_list_generation_prompt: "Provide a list of specific concepts or topics within ${category} that are taught at the elementary school level."
+dataset_prompt: "Write a textbook section about ${topic} for elementary school ${category}."
+ollama_prompt: "${prompt} Use simple language appropriate for children aged 6-10. Include colorful examples, simple diagrams (described in text), and interactive questions. Break complex ideas into small, manageable chunks. The section should be 400-600 words."
+mode: markdown
+
+# High School Textbook
+---
+name: generated-highschool-textbook
+category_list_generation_prompt: "Provide a list of subjects taught in high school."
+topic_list_generation_prompt: "Provide a list of specific concepts or topics within ${category} that are taught at the high school level."
+dataset_prompt: "Write a textbook section about ${topic} for high school ${category}."
+ollama_prompt: "${prompt} Use vocabulary appropriate for grades 9-12. Include clear explanations, relevant examples, diagrams (described in text), key terms with definitions, and review questions. Balance depth and accessibility. The section should be 700-900 words."
+mode: markdown
+
+# College Textbook
+---
+name: generated-college-textbook
+category_list_generation_prompt: "Provide a list of subjects taught at college level."
+topic_list_generation_prompt: "Provide a list of specific concepts, theories, or topics within ${category} that are taught at the undergraduate college level."
+dataset_prompt: "Write a textbook section about ${topic} for undergraduate college ${category}."
+ollama_prompt: "${prompt} Use appropriate academic vocabulary and assume prior knowledge of fundamental concepts in the field. Include theoretical frameworks, research findings, practical applications, and critical analysis. Reference major works or researchers. Include discussion questions and suggested readings. The section should be 1000-1200 words."
+mode: markdown
+
+# Trivia Question Answering
+---
+name: generated-trivia-answers
+category_list_generation_prompt: "Provide a list of trivia categories."
+topic_list_generation_prompt: "Provide a list of specific topics within ${category} trivia that people commonly ask questions about."
+dataset_prompt: "Answer this trivia question about ${topic} in the ${category} category: [Question]"
+ollama_prompt: "${prompt} Provide a direct and accurate answer first, then offer additional context or interesting related facts. If there are multiple possible interpretations of the question, address the most likely one first, then mention alternatives."
+mode: direct
+
+# Trivia Question Generation
+---
+name: generated-trivia-questions
+category_list_generation_prompt: "Provide a list of trivia categories."
+topic_list_generation_prompt: "Provide a list of specific topics within ${category} trivia that would make for interesting questions."
+dataset_prompt: "Generate 5 trivia questions about ${topic} in the ${category} category."
+ollama_prompt: "${prompt} Create questions of varying difficulty levels. Provide the answer after each question. Ensure questions are factually accurate and have a single, unambiguous correct answer. Questions should be interesting and educational."
+mode: markdown
+
+# Wiki Article Generation
+---
+name: generated-wiki
+category_list_generation_prompt: "Provide a list of knowledge domains or fields."
+topic_list_generation_prompt: "Provide a list of specific concepts, entities, or phenomena within the ${category} domain that would merit a wiki article."
+dataset_prompt: "Write a wiki-style article about ${topic} in the field of ${category}."
+ollama_prompt: "${prompt} Follow an encyclopedic, neutral tone. Organize with appropriate sections and subsections. Include an introduction, historical context, key characteristics or components, significance, and references section. Be factual, comprehensive, and objective. The article should be 800-1000 words."
+mode: markdown
+
+# Additional Generators
+
+# Interview Questions
+---
+name: generated-interviews
+category_list_generation_prompt: "Provide a list of professional fields or industries."
+topic_list_generation_prompt: "Provide a list of specific job positions or roles within the ${category} field."
+dataset_prompt: "Generate 8 interview questions for a ${topic} position in the ${category} field."
+ollama_prompt: "${prompt} Include a mix of technical, behavioral, and situational questions. For each question, provide the reasoning behind asking it and what a strong answer might include. Ensure questions are relevant to the specific role and industry context."
+mode: markdown
+
+# Case Studies
+---
+name: generated-case-studies
+category_list_generation_prompt: "Provide a list of professional fields or disciplines that use case studies."
+topic_list_generation_prompt: "Provide a list of specific scenarios or problems within the ${category} field that would make good case studies."
+dataset_prompt: "Write a case study about ${topic} in the ${category} field."
+ollama_prompt: "${prompt} Structure with background information, key issues or challenges, analysis of alternatives, recommended solution, and implementation considerations. Use fictional but realistic details. The case study should be 800-1000 words and include questions for discussion."
+mode: markdown
+
+# News Articles
+---
+name: generated-news
+category_list_generation_prompt: "Provide a list of news categories or beats."
+topic_list_generation_prompt: "Provide a list of specific fictional events that would make good news stories in the ${category} category."
+dataset_prompt: "Write a news article about this fictional event: ${topic}, in the ${category} category."
+ollama_prompt: "${prompt} Follow inverted pyramid structure with the most important information first. Include a headline, byline, dateline, and lead paragraph answering who, what, when, where, why, and how. Use journalistic style with quotes from fictional sources. The article should be 400-600 words."
+mode: markdown
+
+# Executive Summaries
+---
+name: generated-exec-summaries
+category_list_generation_prompt: "Provide a list of business or organizational document types."
+topic_list_generation_prompt: "Provide a list of specific topics or scenarios that would require an executive summary in the ${category} document type."
+dataset_prompt: "Write an executive summary for a ${category} about ${topic}."
+ollama_prompt: "${prompt} Begin with the main conclusion or recommendation. Summarize key points in brief, direct language. Include critical data points and their implications. Avoid technical jargon and focus on business impact. The summary should be 250-350 words."
+mode: markdown
+
+# Technical Documentation
+---
+name: generated-tech-docs
+category_list_generation_prompt: "Provide a list of technology areas or domains."
+topic_list_generation_prompt: "Provide a list of specific features, components, or systems within ${category} technology that would need technical documentation."
+dataset_prompt: "Write technical documentation for ${topic} in ${category} technology."
+ollama_prompt: "${prompt} Include purpose, intended audience, prerequisites, step-by-step usage instructions, configuration options, troubleshooting section, and examples. Use clear, precise language with appropriate technical terms. Format with consistent headings and subheadings."
+mode: markdown
+
+# Critical Analysis
+---
+name: generated-critical-analysis
+category_list_generation_prompt: "Provide a list of domains where critical analysis is applied (literature, film, art, policy, etc.)."
+topic_list_generation_prompt: "Provide a list of specific works, pieces, or documents within the ${category} domain that would benefit from critical analysis."
+dataset_prompt: "Write a critical analysis of ${topic} in the ${category} domain."
+ollama_prompt: "${prompt} Begin with a brief summary or context. Analyze key elements, themes, or components. Evaluate strengths and weaknesses using appropriate analytical frameworks. Support points with specific evidence. Conclude with an overall assessment and broader implications. The analysis should be 700-900 words."
+mode: markdown
+think: true
+
+# Research Methodology
+---
+name: generated-research-methods
+category_list_generation_prompt: "Provide a list of research disciplines or fields."
+topic_list_generation_prompt: "Provide a list of specific research questions or topics within the ${category} field."
+dataset_prompt: "Design a research methodology to investigate ${topic} in the ${category} field."
+ollama_prompt: "${prompt} Include research question and objectives, theoretical framework, research design (qualitative, quantitative, or mixed methods), data collection methods, sampling strategy, data analysis approach, ethical considerations, and limitations. Justify methodological choices based on the research question."
+mode: markdown
+think: true
+
+# Comparative Analysis
+---
+name: generated-comparisons
+category_list_generation_prompt: "Provide a list of domains where comparative analysis is useful."
+topic_list_generation_prompt: "Provide a list of pairs of similar items, concepts, or approaches within the ${category} domain that would benefit from comparison."
+dataset_prompt: "Write a comparative analysis of ${topic} in the ${category} domain."
+ollama_prompt: "${prompt} Establish clear criteria for comparison. Analyze similarities and differences systematically using these criteria. Avoid bias and present a balanced assessment of each item's strengths and weaknesses. Conclude with insights derived from the comparison. The analysis should be 600-800 words."
+mode: markdown
+think: true
+
+# Problem-Solution Essays
+---
+name: generated-problem-solution
+category_list_generation_prompt: "Provide a list of domains or areas with significant problems or challenges."
+topic_list_generation_prompt: "Provide a list of specific problems within the ${category} domain that need solutions."
+dataset_prompt: "Write a problem-solution essay about ${topic} in the ${category} domain."
+ollama_prompt: "${prompt} Clearly define the problem, including causes and effects. Present 2-3 potential solutions with their advantages and disadvantages. Recommend the most promising solution with justification. Address potential obstacles to implementation. The essay should be 700-900 words."
+mode: markdown
+
+# Analogies and Metaphors
+---
+name: generated-analogies
+category_list_generation_prompt: "Provide a list of complex or abstract concept areas."
+topic_list_generation_prompt: "Provide a list of specific difficult concepts within the ${category} area that would benefit from analogy or metaphor."
+dataset_prompt: "Create 3 analogies or metaphors to explain ${topic} in the ${category} area."
+ollama_prompt: "${prompt} For each analogy, first identify the key aspects of the concept that need explanation. Then create a comparison to something more familiar or concrete. Explain why the analogy works and its limitations. Ensure the analogies build in complexity or target different aspects of the concept."
+mode: markdown
+
+# Decision Trees
+---
+name: generated-decision-trees
+category_list_generation_prompt: "Provide a list of domains where decision-making is complex."
+topic_list_generation_prompt: "Provide a list of specific decision scenarios within the ${category} domain that would benefit from structured analysis."
+dataset_prompt: "Create a decision tree for ${topic} in the ${category} domain."
+ollama_prompt: "${prompt} Start with the initial decision point. Map out all possible choices and their consequences, continuing through subsequent decision points. Include decision criteria at each node. Consider probabilities and values where appropriate. Present in a clear, logical flow that guides the decision-maker through the process."
+mode: markdown
+
+# Medical Information
+---
+name: generated-medical
+category_list_generation_prompt: "Provide a list of medical information categories suitable for patient education."
+topic_list_generation_prompt: "Provide a list of specific conditions, treatments, or health topics within the ${category} category."
+dataset_prompt: "Write patient education information about ${topic} in the ${category} category."
+ollama_prompt: "${prompt} Use clear, accessible language avoiding medical jargon when possible. Include definition/description, causes/risk factors, symptoms, diagnosis methods, treatment options, prevention strategies, and when to seek medical help. Emphasize that this information is educational and does not replace professional medical advice."
+mode: markdown
+
+# Legal Explanations
+---
+name: generated-legal
+category_list_generation_prompt: "Provide a list of legal topics relevant to the general public."
+topic_list_generation_prompt: "Provide a list of specific laws, rights, or legal processes within the ${category} area."
+dataset_prompt: "Explain ${topic} in the legal area of ${category}."
+ollama_prompt: "${prompt} Break down complex legal concepts into understandable language while maintaining accuracy. Cover the purpose of the law/process, key provisions, relevant rights and obligations, common misconceptions, and practical implications. Include a disclaimer that this is general information, not legal advice."
+mode: markdown
+
+# Financial Advice
+---
+name: generated-financial
+category_list_generation_prompt: "Provide a list of personal finance topics."
+topic_list_generation_prompt: "Provide a list of specific financial concepts, strategies, or decisions within the ${category} topic."
+dataset_prompt: "Explain ${topic} in the financial area of ${category}."
+ollama_prompt: "${prompt} Present clear, actionable information suitable for a general audience. Include definition of terms, key principles, strategic considerations, potential benefits and risks, and common mistakes to avoid. Use examples to illustrate concepts. Include a disclaimer that this is general information, not personalized financial advice."
+mode: markdown
+
+# Opinion Essays
+---
+name: generated-opinion
+category_list_generation_prompt: "Provide a list of domains with debatable issues or topics."
+topic_list_generation_prompt: "Provide a list of specific debatable questions or issues within the ${category} domain."
+dataset_prompt: "Write an opinion essay on this question: ${topic} in the ${category} domain."
+ollama_prompt: "${prompt} Take a clear position on the issue. Support your position with logical arguments, evidence, and examples. Acknowledge counterarguments and provide rebuttals. Use persuasive language while maintaining a respectful tone. The essay should be 600-800 words."
+mode: markdown
+
+# Product Descriptions
+---
+name: generated-product
+category_list_generation_prompt: "Provide a list of product categories."
+topic_list_generation_prompt: "Provide a list of specific fictional products within the ${category} category."
+dataset_prompt: "Write a product description for ${topic}, a product in the ${category} category."
+ollama_prompt: "${prompt} Begin with an attention-grabbing headline. Describe key features and benefits, connecting features to customer needs. Use sensory language and vivid descriptions. Include specifications, use cases, and what sets the product apart from competitors. The description should be 250-350 words."
+mode: markdown
+
+# Character Profiles
+---
+name: generated-characters
+category_list_generation_prompt: "Provide a list of fiction genres or character archetypes."
+topic_list_generation_prompt: "Provide a list of interesting character concepts that would fit in the ${category} genre or archetype."
+dataset_prompt: "Create a character profile for ${topic}, a character in the ${category} genre/archetype."
+ollama_prompt: "${prompt} Include physical description, personality traits, background/history, motivations/goals, strengths/weaknesses, and key relationships. Develop a distinct voice and perspective for the character. The profile should reveal both external traits and internal psychology."
+mode: markdown
+
+# Book Reviews
+---
+name: generated-book-reviews
+category_list_generation_prompt: "Provide a list of book genres."
+topic_list_generation_prompt: "Provide a list of fictional book titles and authors in the ${category} genre."
+dataset_prompt: "Write a book review for '${topic}', a fictional book in the ${category} genre."
+ollama_prompt: "${prompt} Include a brief non-spoiler summary, analysis of writing style, character development, and themes. Discuss strengths and weaknesses. Compare to other works in the genre if relevant. Conclude with an overall assessment and recommendation. The review should be 500-700 words."
+mode: markdown
+
+# Cultural Traditions
+---
+name: generated-cultural
+category_list_generation_prompt: "Provide a list of cultural aspects or domains (e.g., holidays, cuisine, ceremonies)."
+topic_list_generation_prompt: "Provide a list of specific cultural traditions or practices related to ${category} from around the world."
+dataset_prompt: "Describe ${topic}, a cultural tradition related to ${category}."
+ollama_prompt: "${prompt} Include the cultural origin and historical context, meaning and significance, traditional practices and rituals, regional variations if applicable, and contemporary relevance. Be respectful and accurate in your portrayal of cultural traditions."
+mode: markdown
+
+# Ethical Dilemmas
+---
+name: generated-ethics
+category_list_generation_prompt: "Provide a list of domains where ethical dilemmas commonly occur."
+topic_list_generation_prompt: "Provide a list of specific ethical dilemmas or scenarios within the ${category} domain."
+dataset_prompt: "Analyze this ethical dilemma: ${topic} in the ${category} domain."
+ollama_prompt: "${prompt} Present the dilemma clearly, identifying the conflicting values or principles. Analyze the situation from multiple ethical frameworks or perspectives. Explore potential consequences of different courses of action. Avoid imposing a single 'correct' answer, instead highlighting the complexity of ethical decision-making."
+mode: markdown
+think: true
+
+# Travel Guides
+---
+name: generated-travel
+category_list_generation_prompt: "Provide a list of travel destination types (e.g., cities, national parks, historical sites)."
+topic_list_generation_prompt: "Provide a list of specific destinations within the ${category} type."
+dataset_prompt: "Write a travel guide for ${topic}, a ${category} destination."
+ollama_prompt: "${prompt} Include an introduction highlighting key attractions, practical information (best time to visit, how to get there, where to stay), must-see attractions, food and dining recommendations, cultural tips or etiquette, and off-the-beaten-path suggestions. The guide should be informative and engaging."
+mode: markdown
+
+# Weather Explanations
+---
+name: generated-weather
+category_list_generation_prompt: "Provide a list of weather phenomena and meteorological concepts."
+topic_list_generation_prompt: "Provide a list of specific aspects or questions about ${category} that people commonly want to understand."
+dataset_prompt: "Explain ${topic} related to the weather phenomenon of ${category}."
+ollama_prompt: "${prompt} Break down the scientific principles in accessible language. Explain causes, patterns, and effects. Include real-world examples or analogies to aid understanding. Address common misconceptions. The explanation should be educational and clear to a general audience."
+mode: markdown
+
+# Science Experiments
+---
+name: generated-experiments
+category_list_generation_prompt: "Provide a list of scientific fields suitable for demonstrations or experiments."
+topic_list_generation_prompt: "Provide a list of specific scientific concepts within ${category} that can be demonstrated through experiments."
+dataset_prompt: "Design a science experiment to demonstrate ${topic} in the field of ${category}."
+ollama_prompt: "${prompt} Include a clear objective, materials list, step-by-step procedure, safety precautions, expected results, scientific explanation, and discussion questions. The experiment should be educational, feasible with common materials, and appropriate for the intended audience level."
+mode: markdown
+
+# Language Learning Dialogues
+---
+name: generated-language
+category_list_generation_prompt: "Provide a list of common scenarios for language learning dialogues."
+topic_list_generation_prompt: "Provide a list of specific situations within the ${category} scenario that would make useful language learning dialogues."
+dataset_prompt: "Write a dialogue for language learners about ${topic} in a ${category} scenario."
+ollama_prompt: "${prompt} Create a natural-sounding conversation between 2-3 people. Include common vocabulary and phrases relevant to the situation. Progress from simpler to more complex language. Include cultural context where appropriate. The dialogue should be practical and useful for real-world communication."
+mode: conversational
+
+# Logic Puzzles
+---
+name: generated-puzzles
+category_list_generation_prompt: "Provide a list of logic puzzle types."
+topic_list_generation_prompt: "Provide a list of specific themes or scenarios that would work well for ${category} puzzles."
+dataset_prompt: "Create a ${category} logic puzzle about ${topic}."
+ollama_prompt: "${prompt} Ensure the puzzle has a clear setup, sufficient clues, and exactly one solution that can be reached through logical deduction. Include the puzzle, step-by-step solution showing the reasoning process, and an explanation of the logic principles involved."
+mode: markdown
+think: true
+
+# Statistical Analysis
+---
+name: generated-statistics
+category_list_generation_prompt: "Provide a list of domains where statistical analysis is commonly applied."
+topic_list_generation_prompt: "Provide a list of specific questions or scenarios within the ${category} domain that would require statistical analysis."
+dataset_prompt: "Perform a statistical analysis on this ${category} scenario: ${topic}"
+ollama_prompt: "${prompt} Define the research question and hypotheses. Identify appropriate statistical methods for the given data and question. Perform calculations step-by-step. Interpret results in plain language. Discuss limitations and implications. Include relevant statistical terminology with explanations."
+mode: markdown
+think: true
+
+# Persuasive Arguments
+---
+name: generated-persuasive
+category_list_generation_prompt: "Provide a list of domains with issues that require persuasion or advocacy."
+topic_list_generation_prompt: "Provide a list of specific positions or causes within the ${category} domain that someone might advocate for."
+dataset_prompt: "Write a persuasive argument for this position: ${topic} in the ${category} domain."
+ollama_prompt: "${prompt} Begin with a compelling hook and clear thesis statement. Present 3-4 strong supporting points with evidence. Address and refute counterarguments. Use rhetorical techniques effectively. End with a call to action. The argument should be logical, evidence-based, and emotionally resonant."
+mode: markdown
+
+# Event Planning
+---
+name: generated-events
+category_list_generation_prompt: "Provide a list of event types (e.g., weddings, conferences, fundraisers)."
+topic_list_generation_prompt: "Provide a list of specific themes or concepts for ${category} events."
+dataset_prompt: "Create a detailed plan for a ${category} event with the theme: ${topic}"
+ollama_prompt: "${prompt} Include event objectives, target audience, timeline/schedule, venue requirements, budget considerations, necessary resources, marketing strategies, and contingency plans. Be comprehensive while providing practical, actionable guidance."
+mode: markdown
+
+# Career Advice
+---
+name: generated-career
+category_list_generation_prompt: "Provide a list of professional fields or industries."
+topic_list_generation_prompt: "Provide a list of specific career challenges or decisions within the ${category} field."
+dataset_prompt: "Provide career advice about ${topic} for professionals in the ${category} field."
+ollama_prompt: "${prompt} Offer practical, actionable guidance based on industry realities. Include both immediate steps and long-term strategies. Address common pitfalls and how to avoid them. Balance optimism with realistic expectations. The advice should be supportive while acknowledging the complexities of career development."
+mode: markdown
+
+# Long-Form Fiction
+---
+name: generated-long-longform-fiction
+category_list_generation_prompt: "Provide a list of diverse fiction genres suitable for long-form narrative fiction."
+topic_list_generation_prompt: "Provide a list of creative and original novel concepts in the ${category} genre. Include compelling premises that would suit a novel-length story. Do not use titles or concepts of real published books."
+section_list_generation_prompt: "Provide a list of essential chapters or sections for a novel titled '${topic}' in the ${category} genre. Include an introduction/opening chapter, several middle chapters showing plot development, and a conclusion/final chapter."
+dataset_prompt: "Write a novel titled '${topic}' in the ${category} genre."
+ollama_prompt: "Write the '${section}' chapter for a novel titled '${topic}' in the ${category} genre. Make this a rich, detailed narrative with vivid descriptions, compelling characters, and engaging dialogue. Develop the plot and characters appropriately for this section of the story. Your chapter should be 800-1200 words and should flow naturally from previous sections while advancing the overall narrative. Include sensory details and emotional depth."
+mode: markdown
+think: true
+
+# Educational Textbooks
+---
+name: generated-long-textbook
+category_list_generation_prompt: "Provide a list of academic disciplines or educational fields suitable for comprehensive textbooks."
+topic_list_generation_prompt: "Provide a list of specific subject areas within ${category} that would make good topics for educational textbooks. These should be broad enough to warrant multiple chapters but specific enough to maintain focus."
+section_list_generation_prompt: "Provide a list of essential chapters or sections for a textbook titled '${topic}' in the field of ${category}. Include introductory chapters, core concept chapters, advanced applications, and conclusion/summary chapters."
+dataset_prompt: "Write an educational textbook about '${topic}' in the field of ${category}."
+ollama_prompt: "Write the '${section}' chapter for an educational textbook about '${topic}' in the field of ${category}. Write in a clear, pedagogical style appropriate for an educational textbook. Include relevant terminology, definitions, examples, and explanations. Where appropriate, mention key figures or research in the field. Include thought exercises or discussion questions. Make concepts accessible while maintaining academic rigor and accuracy. Your chapter should be 800-1200 words and build upon previous knowledge while introducing new concepts."
+mode: markdown
+think: true
+
+# Technical Documentation
+---
+name: generated-long-technical-docs
+category_list_generation_prompt: "Provide a list of programming languages, frameworks, or technical platforms that require comprehensive documentation."
+topic_list_generation_prompt: "Provide a list of specific tools, libraries, or features within ${category} that would benefit from detailed technical documentation."
+section_list_generation_prompt: "Provide a list of essential sections for technical documentation about '${topic}' in ${category}. Include introduction, installation/setup, core functionality, advanced usage, API reference, troubleshooting, and best practices sections."
+dataset_prompt: "Write comprehensive technical documentation for '${topic}' in ${category}."
+ollama_prompt: "Write a ${section} section for technical documentation about '${topic}' in ${category}. Write in a clear, precise style appropriate for technical documentation. Include code examples, explanations, and usage patterns. Consider both beginners and advanced users. Include common pitfalls and solutions where relevant. Your section should be comprehensive yet concise, focusing on practical information that helps developers implement and use the technology effectively."
+mode: markdown
+think: true
+
+# Movie Scripts
+---
+name: generated-long-movie-scripts
+category_list_generation_prompt: "Provide a list of diverse film genres suitable for feature-length screenplays."
+topic_list_generation_prompt: "Provide a list of original and compelling movie concepts in the ${category} genre. Include high-concept premises that would work well as feature films. Do not use titles or concepts of real published movies."
+section_list_generation_prompt: "Provide a list of essential sequences for a screenplay titled '${topic}' in the ${category} genre. Include opening sequence, major plot points, climax, and resolution. Use standard screenplay structure (Act 1, Act 2A, Act 2B, Act 3, etc.)."
+dataset_prompt: "Write a screenplay for a movie titled '${topic}' in the ${category} genre."
+ollama_prompt: "Write the '${section}' sequence for a screenplay titled '${topic}' in the ${category} genre. Follow proper screenplay format with scene headings (INT./EXT.), action descriptions, character names, dialogue, and parentheticals. Focus on visual storytelling and compelling dialogue. Make sure this sequence advances the plot appropriately for its position in the three-act structure. Your sequence should be approximately 5-10 pages (roughly 5-10 minutes of screen time) and contain meaningful character development or plot advancement."
+mode: markdown
+think: true
+
+# TV Series Scripts
+---
+name: generated-long-tv-scripts
+category_list_generation_prompt: "Provide a list of diverse television genres suitable for episodic series."
+topic_list_generation_prompt: "Provide a list of original and compelling TV series concepts in the ${category} genre. Include premises that would sustain multiple episodes and seasons. Do not use titles or concepts of real published TV shows."
+section_list_generation_prompt: "Provide a list of essential scenes or sequences for a pilot episode of a TV series titled '${topic}' in the ${category} genre. Include character introductions, setup of the main conflict, B-plots, and episode resolution/cliffhanger."
+dataset_prompt: "Write a pilot episode script for a TV series titled '${topic}' in the ${category} genre."
+ollama_prompt: "Write the '${section}' scene/sequence for a pilot episode of a TV series titled '${topic}' in the ${category} genre. Follow proper teleplay format with scene headings (INT./EXT.), action descriptions, character names, dialogue, and parentheticals. Focus on establishing characters, relationships, and the series' main conflicts. For this pilot episode, ensure you're introducing elements that will hook viewers and set up season-long arcs. Your scene should be approximately 3-5 pages and contribute meaningfully to the episode's structure and the overall series premise."
+mode: markdown
+think: true
+
+
+# Stage Plays
+---
+name: generated-long-stage-plays
+category_list_generation_prompt: "Provide a list of diverse theatrical genres and styles suitable for stage plays."
+topic_list_generation_prompt: "Provide a list of original and compelling stage play concepts in the ${category} style. Include premises suitable for theatrical performance. Do not use titles or concepts of real published plays."
+section_list_generation_prompt: "Provide a list of essential scenes or acts for a stage play titled '${topic}' in the ${category} style. Include opening scene, key dramatic moments, and conclusion. Use theatrical structure (acts and scenes)."
+dataset_prompt: "Write a stage play titled '${topic}' in the ${category} style."
+ollama_prompt: "Write the '${section}' for a stage play titled '${topic}' in the ${category} style. Follow proper stage play format with scene descriptions, stage directions, character names, and dialogue. Consider theatrical staging limitations and opportunities. Focus on compelling dialogue and dramatic tension that works well in a live performance setting. Your scene should be approximately 5-10 pages and demonstrate clear character motivation and conflict appropriate for its position in the play's structure. Include necessary production notes about setting, lighting, or sound where relevant."
+mode: markdown
+think: true
+
+# Podcast Scripts
+---
+name: generated-long-podcast-scripts
+category_list_generation_prompt: "Provide a list of diverse podcast formats and genres (educational, narrative, interview, etc.)."
+topic_list_generation_prompt: "Provide a list of original and compelling podcast concepts in the ${category} format. Include premises that would sustain multiple episodes. Do not use titles or concepts of real published podcasts."
+section_list_generation_prompt: "Provide a list of essential segments for an episode of a podcast titled '${topic}' in the ${category} format. Include introduction, main content sections, transitional elements, and conclusion."
+dataset_prompt: "Write a script for an episode of a podcast titled '${topic}' in the ${category} format."
+ollama_prompt: "Write the '${section}' segment for an episode of a podcast titled '${topic}' in the ${category} format. Follow appropriate script format with speaker labels, dialogue/narration, and production notes for sound effects or music cues where relevant. Focus on engaging audio storytelling that captivates listeners without visual elements. Your segment should be approximately 5-10 minutes of spoken content and maintain the appropriate tone and pacing for this type of podcast. For narrative podcasts, include descriptive elements; for interview formats, include realistic conversation flow; for educational podcasts, ensure information is structured clearly for audio comprehension."
+mode: markdown
+think: true
+
+# Academic Papers
+---
+name: generated-long-academic-papers
+category_list_generation_prompt: "Provide a list of diverse academic disciplines and research fields."
+topic_list_generation_prompt: "Provide a list of plausible research topics or hypothetical studies within ${category} that would make suitable subjects for academic papers. These should be original but realistic research concepts."
+section_list_generation_prompt: "Provide a list of standard sections for an academic paper titled '${topic}' in the field of ${category}. Include abstract, introduction, literature review, methodology, results, discussion, and conclusion sections."
+dataset_prompt: "Write an academic research paper titled '${topic}' in the field of ${category}."
+ollama_prompt: "Write the '${section}' section for an academic research paper titled '${topic}' in the field of ${category}. Follow proper academic writing conventions appropriate for scholarly publications in this field. Use formal, precise language and appropriate citation style (though you may use placeholder citations). Your section should thoroughly address its purpose within the overall paper structure: abstracts should summarize the entire study; introductions should establish research questions and significance; methods should detail procedures; results should present findings objectively; discussions should interpret results and note limitations; conclusions should summarize contributions to the field. Ensure your content demonstrates scholarly rigor while remaining accessible to other researchers in the field."
+mode: markdown
+think: true
+
+
+# Audio Drama Scripts
+---
+name: generated-audio-dramas
+category_list_generation_prompt: "Provide a list of genres suitable for audio dramas."
+topic_list_generation_prompt: "Provide a list of creative story titles or premises in the ${category} genre that would make good audio dramas."
+dataset_prompt: "Write an audio drama script in the ${category} genre titled '${topic}'."
+ollama_prompt: "${prompt} Format the script with character names, sound cues (SFX), and brief scene descriptions. Focus on compelling dialogue and pacing suited for audio-only storytelling. Keep the script around 800-1000 words."
+mode: markdown
+
+# Interactive Fiction Scenes
+---
+name: generated-interactive-fiction
+category_list_generation_prompt: "Provide a list of genres or settings suitable for interactive fiction."
+topic_list_generation_prompt: "Provide a list of story scenarios or quests in the ${category} genre that could serve as the opening to an interactive fiction piece."
+dataset_prompt: "Write the opening scene for an interactive fiction story in the ${category} genre titled '${topic}'."
+ollama_prompt: "${prompt} End the scene with 2-4 player choices that could lead to branching narratives. Present choices clearly, and make each one meaningful. Use second person narration."
+mode: markdown
+
+# Short-Form Script Prompts
+---
+name: generated-script-prompts
+category_list_generation_prompt: "Provide a list of storytelling formats (e.g., short film, TikTok skit, voiceover reel, stage monologue)."
+topic_list_generation_prompt: "Provide a list of unique or quirky ideas that would fit the ${category} format."
+dataset_prompt: "Write a short script in the ${category} format with the premise: ${topic}."
+ollama_prompt: "${prompt} Keep it under 3 minutes of performance time. Use visual or verbal cues depending on the format. Focus on originality and audience engagement."
+mode: markdown
+
+# Narrative Prompt Generator
+---
+name: generated-narrative-prompts
+category_list_generation_prompt: "Provide a list of fiction genres."
+topic_list_generation_prompt: "Provide a list of story premises or narrative hooks within the ${category} genre."
+dataset_prompt: "Create a rich narrative prompt for a ${category} story with the premise: ${topic}."
+ollama_prompt: "${prompt} Include a few sentences of setup, the tone or mood, and 1-2 character ideas. The prompt should inspire long-form fiction or script writing."
+mode: markdown
+
+# Character-Only Scenes
+---
+name: generated-dialogue-scenes
+category_list_generation_prompt: "Provide a list of fiction genres."
+topic_list_generation_prompt: "Provide a list of emotionally charged or dramatic character moments in ${category} fiction."
+dataset_prompt: "Write a character-driven dialogue scene in the ${category} genre about ${topic}."
+ollama_prompt: "${prompt} No narration or exposition—only dialogue with speaker tags. Capture emotional subtext, power dynamics, or tension. Scene should be 400-600 words."
+mode: markdown
+
+# Conversational Defaults
+---
+name: generated-conversational-defaults
+topic_list_generation_prompt: "List friendly, brief user prompts that don't require deep reasoning (e.g., greetings, small talk, social openers)."
+dataset_prompt: "Respond to this user message: '${topic}'"
+ollama_prompt: "${prompt} Respond succinctly and politely. Avoid asking questions or redirecting. Keep personality minimal but present."
+mode: direct
+
+# Metanarrative Monologues
+---
+name: generated-metanarrative
+category_list_generation_prompt: "Provide a list of narrator archetypes (e.g., unreliable narrator, omniscient being, future AI, dead character)."
+topic_list_generation_prompt: "Provide a list of story scenarios or perspectives that would be interesting from the point of view of a ${category}."
+dataset_prompt: "Write a monologue from a ${category} narrator about ${topic}."
+ollama_prompt: "${prompt} Use distinctive voice and perspective. Include self-awareness, fourth-wall breaks, or unique framing. The monologue should be 500-700 words."
+mode: markdown
+
+# Story Mechanics (Beats & Tropes)
+---
+name: generated-plot-structure
+category_list_generation_prompt: "Provide a list of common narrative structures or plot templates (e.g., hero’s journey, bottle episode, heist arc)."
+topic_list_generation_prompt: "Provide a list of fictional scenarios or genres that could apply the ${category} structure."
+dataset_prompt: "Outline a ${category} story structure applied to this scenario: ${topic}."
+ollama_prompt: "${prompt} Break the story into 5-7 labeled beats or stages. For each, describe the narrative function and give a brief summary of what happens. Use clear, structured formatting."
+mode: markdown
+
+# Story Pitches
+---
+name: generated-story-pitches
+category_list_generation_prompt: "Provide a list of storytelling formats (e.g., novel, TV pilot, video game, animated short)."
+topic_list_generation_prompt: "Provide a list of creative story premises that could work in the ${category} format."
+dataset_prompt: "Pitch a story idea in the ${category} format with this premise: ${topic}."
+ollama_prompt: "${prompt} Include a hook, core concept, target audience, visual/tone reference (e.g., 'like Coraline meets Blade Runner'), and why this format is ideal. Keep pitch under 300 words."
+mode: markdown
+
+# Grammar & Style Guidance
+---
+name: generated-writing-advice
+category_list_generation_prompt: "Provide a list of writing topics or skills (e.g., clarity, grammar, flow, tone)."
+topic_list_generation_prompt: "Provide a list of specific questions or challenges related to ${category}."
+dataset_prompt: "Give writing advice on this topic: ${topic} in the area of ${category}."
+ollama_prompt: "${prompt} Break down the issue clearly. Offer examples and alternatives. Explain why one choice is better than another. Keep the tone supportive and practical."
+mode: markdown
+
+# Accent & Dialect Coaching
+---
+name: generated-accents
+category_list_generation_prompt: "Provide a list of regional or character-based accents and dialects (e.g., Cockney, Appalachian, Boston, Pirate)."
+topic_list_generation_prompt: "Provide a list of phrases or scenarios someone might want to express using the ${category} dialect."
+dataset_prompt: "Convert this phrase to the ${category} dialect: ${topic}"
+ollama_prompt: "${prompt} Include a translation, pronunciation notes, and key features of the dialect (grammar, slang, sound shifts). Explain cultural tone or character if relevant."
+mode: markdown
+
+# Acting & Performance Coaching
+---
+name: generated-acting-coach
+category_list_generation_prompt: "Provide a list of acting skills or performance challenges (e.g., emotion delivery, voice modulation, blocking)."
+topic_list_generation_prompt: "Provide a list of specific scenarios or character types for practicing ${category}."
+dataset_prompt: "Give performance advice for portraying ${topic} using ${category} skills."
+ollama_prompt: "${prompt} Provide practical guidance for vocal tone, facial expression, body movement, and emotional beats. Include rehearsal tips and what to avoid."
+mode: markdown
+
+
+# Sentence Rewriting & Tone Shaping
+---
+name: generated-style-conversion
+category_list_generation_prompt: "Provide a list of writing tones, moods, or voices (e.g., sarcastic, romantic, noir, Shakespearean)."
+topic_list_generation_prompt: "Provide a list of statements or ideas that could be rewritten in the ${category} tone."
+dataset_prompt: "Rewrite this sentence in a ${category} style: ${topic}"
+ollama_prompt: "${prompt} Keep meaning intact. Use vivid, genre-appropriate phrasing. Explain key stylistic changes."
+mode: markdown
+
+# Editing and Rewriting with Comparison
+---
+name: generated-editing-feedback
+category_list_generation_prompt: "Provide a list of editing goals (e.g., grammar correction, clarity, conciseness, tone adjustment, passive voice removal)."
+topic_list_generation_prompt: "Provide a list of sentences or short paragraphs that need editing for ${category}."
+dataset_prompt: "Edit the following text to improve ${category}: ${topic}"
+ollama_prompt: "${prompt} First display the original text. Then provide the revised version. After that, briefly explain the changes made and why. Keep formatting clean and clear."
+mode: markdown
+
+# Plot Twists & Surprises
+---
+name: generated-plot-twists
+category_list_generation_prompt: "Provide a list of fiction genres."
+topic_list_generation_prompt: "Provide a list of dramatic or unexpected scenarios in ${category} stories that could use a twist."
+dataset_prompt: "Create a shocking, ironic, or emotionally resonant plot twist for this scenario in ${category} fiction: ${topic}"
+ollama_prompt: "${prompt} Include the twist event, setup clues or foreshadowing, and a brief explanation of the emotional or thematic payoff."
+mode: markdown
+
+# Foreshadowing Techniques
+---
+name: generated-foreshadowing
+category_list_generation_prompt: "Provide a list of narrative devices or story elements."
+topic_list_generation_prompt: "Provide a list of long-term reveals or payoffs that might benefit from foreshadowing using ${category}."
+dataset_prompt: "Use ${category} to foreshadow this future reveal: ${topic}"
+ollama_prompt: "${prompt} Include subtle dialogue, imagery, or small events that hint at the reveal without making it obvious. Explain how it will pay off later."
+mode: markdown
+
+# Metaphor Expansion
+---
+name: generated-metaphors
+category_list_generation_prompt: "Provide a list of themes or emotions."
+topic_list_generation_prompt: "Provide a list of metaphors related to ${category} that could be expanded into full paragraphs."
+dataset_prompt: "Expand this metaphor about ${category}: '${topic}'"
+ollama_prompt: "${prompt} Turn the metaphor into a descriptive paragraph or short passage. Use visual language and develop the idea."
+mode: markdown
+
+# Character Voice Mimicry
+---
+name: generated-character-voice
+category_list_generation_prompt: "Provide a list of character archetypes or personalities."
+topic_list_generation_prompt: "Provide a list of situations or dialogue prompts for a ${category} character."
+dataset_prompt: "Write dialogue for a ${category} character responding to: '${topic}'"
+ollama_prompt: "${prompt} Maintain consistent character voice, tone, and vocabulary. Avoid narration—use only dialogue and speaker tags."
+mode: markdown
+
+# Internal Monologue Writing
+---
+name: generated-internal-monologue
+category_list_generation_prompt: "Provide a list of emotional or psychological states."
+topic_list_generation_prompt: "Provide a list of scenarios that might trigger ${category} internal conflict."
+dataset_prompt: "Write an internal monologue during this ${category} situation: ${topic}"
+ollama_prompt: "${prompt} Use first person and stay inside the character’s thoughts. Include self-doubt, rationalization, emotional reactions, and memory fragments."
+mode: markdown
+
+# Tone Correction
+---
+name: generated-tone-correction
+category_list_generation_prompt: "Provide a list of writing tones or moods."
+topic_list_generation_prompt: "Provide a list of sentences or paragraphs that need to be rewritten in a ${category} tone."
+dataset_prompt: "Rewrite this text to match a ${category} tone: ${topic}"
+ollama_prompt: "${prompt} Provide the original and the rewritten version. Briefly explain the tone shift and how it was achieved."
+mode: markdown
+
+# Magic System Design
+---
+name: generated-magic-systems
+category_list_generation_prompt: "Provide a list of themes or metaphysical ideas (e.g., time, decay, memory, gravity)."
+topic_list_generation_prompt: "Provide a list of fictional magic systems built around ${category}."
+dataset_prompt: "Design a magic system based on the ${category} concept: ${topic}"
+ollama_prompt: "${prompt} Include rules, costs, limitations, and what it allows users to do. Describe how it shapes the world and its culture."
+mode: markdown
+
+# Faction Design
+---
+name: generated-factions
+category_list_generation_prompt: "Provide a list of power structures (e.g., empire, guild, cult, republic)."
+topic_list_generation_prompt: "Provide a list of fictional factions or groups based on the ${category} structure."
+dataset_prompt: "Create a fictional ${category} faction called '${topic}'"
+ollama_prompt: "${prompt} Include beliefs, internal hierarchy, goals, symbolism, and interactions with outsiders."
+mode: markdown
+
+# In-World Relics
+---
+name: generated-relics
+category_list_generation_prompt: "Provide a list of artifact types (e.g., weapon, book, crown, mirror)."
+topic_list_generation_prompt: "Provide a list of unique fictional items of the ${category} type."
+dataset_prompt: "Describe '${topic}', a legendary ${category} in a fantasy world."
+ollama_prompt: "${prompt} Include origin story, magical properties, risks, and current location or ownership."
+mode: markdown
+
+# RPG Narrator Scenes
+---
+name: generated-rpg-scenes
+category_list_generation_prompt: "Provide a list of RPG encounter types (e.g., ambush, puzzle room, moral dilemma, boss fight)."
+topic_list_generation_prompt: "Provide a list of dramatic moments that could occur during a ${category} encounter."
+dataset_prompt: "Narrate a dramatic RPG scene based on this ${category} encounter: ${topic}"
+ollama_prompt: "${prompt} Use second-person narration and cinematic detail. End with a choice for the player."
+mode: markdown
+
+# Dialogue Tree Designer
+---
+name: generated-dialogue-trees
+category_list_generation_prompt: "Provide a list of conversation scenarios in video games or interactive fiction."
+topic_list_generation_prompt: "Provide a list of choices or player goals that could shape a ${category} interaction."
+dataset_prompt: "Create a dialogue tree for this ${category} situation: ${topic}"
+ollama_prompt: "${prompt} Include NPC lines, player options, and resulting reactions. Use labeled branches and keep structure readable."
+mode: markdown
+
+# Lore Entries
+---
+name: generated-lore
+category_list_generation_prompt: "Provide a list of worldbuilding domains (e.g., history, biology, culture, religion, architecture)."
+topic_list_generation_prompt: "Provide a list of fictional entries related to ${category} in a fantasy or sci-fi world."
+dataset_prompt: "Write an in-world lore entry about ${topic} in the domain of ${category}."
+ollama_prompt: "${prompt} Write in an encyclopedic or textbook style. Include date ranges, discovery stories, and in-world consequences."
+mode: markdown
+
+# Trailer Voiceovers
+---
+name: generated-trailers
+category_list_generation_prompt: "Provide a list of genres or tones for story trailers (e.g., horror, epic fantasy, sci-fi thriller)."
+topic_list_generation_prompt: "Provide a list of fictional stories in the ${category} genre that could be adapted into a dramatic trailer."
+dataset_prompt: "Write a voiceover script for the trailer of this ${category} story: ${topic}"
+ollama_prompt: "${prompt} Use dramatic timing, pauses, and teaser phrasing (e.g., 'In a world...'). Limit to ~150 words."
+mode: markdown
+
+# YouTube Explainer Scripts
+---
+name: generated-youtube
+category_list_generation_prompt: "Provide a list of YouTube channel types (e.g., animation breakdowns, history summaries, AI commentary)."
+topic_list_generation_prompt: "Provide a list of topics that would be covered in a ${category} channel."
+dataset_prompt: "Write a YouTube explainer script on '${topic}' for a ${category} channel."
+ollama_prompt: "${prompt} Use a segmented structure (hook, intro, main content, outro). Keep tone casual and engaging. Include call to action."
+mode: markdown
+
+# Comic Strip Scripts
+---
+name: generated-comics
+category_list_generation_prompt: "Provide a list of comic strip themes or tones (e.g., slice of life, dark humor, fantasy adventure)."
+topic_list_generation_prompt: "Provide a list of punchlines or twists for a 3-6 panel ${category} comic."
+dataset_prompt: "Write a comic strip script for a ${category} comic with this punchline or twist: ${topic}"
+ollama_prompt: "${prompt} Break into panel-by-panel format. Include dialogue, action, and visual cues."
+mode: markdown
+
+# Document Rewriting
+---
+name: generated-doc-cleanup
+category_list_generation_prompt: "Provide a list of document types (e.g., memo, summary, proposal, pitch deck)."
+topic_list_generation_prompt: "Provide a list of messy or unstructured ideas that need to be rewritten as a ${category}."
+dataset_prompt: "Rewrite this messy content into a clear ${category} format: ${topic}"
+ollama_prompt: "${prompt} Provide the cleaned-up version. Ensure professional tone, logical flow, and proper formatting."
+mode: markdown
+
+# Outline Expansion
+---
+name: generated-outline-expansion
+category_list_generation_prompt: "Provide a list of content types that often start as outlines (e.g., essays, scenes, tutorials)."
+topic_list_generation_prompt: "Provide a list of outlines or bullet points in the ${category} format."
+dataset_prompt: "Expand this outline into full paragraphs for a ${category}: ${topic}"
+ollama_prompt: "${prompt} Keep structure clear. Expand each bullet into a coherent paragraph. Maintain logical flow."
+mode: markdown
+
+# Paragraph Compression
+---
+name: generated-paragraph-compression
+category_list_generation_prompt: "Provide a list of content types that benefit from concise restating (e.g., emails, summaries, abstracts)."
+topic_list_generation_prompt: "Provide a list of overlong or verbose paragraphs in ${category} format."
+dataset_prompt: "Compress the following ${category} paragraph for clarity and brevity: ${topic}"
+ollama_prompt: "${prompt} Provide original and compressed versions. Explain what was removed and why."
+mode: markdown
+
+# Ritual Design
+---
+name: generated-rituals
+category_list_generation_prompt: "Provide a list of magical, religious, or cultural purposes rituals might serve."
+topic_list_generation_prompt: "Provide a list of fictional rituals that fulfill a ${category} purpose."
+dataset_prompt: "Describe the fictional ritual '${topic}', created for the purpose of ${category}."
+ollama_prompt: "${prompt} Include the ritual's origin, steps, symbolism, materials, and emotional or spiritual effect. Mention who performs it and under what circumstances."
+mode: markdown
+
+# Dream Sequence Writing
+---
+name: generated-dreams
+category_list_generation_prompt: "Provide a list of emotional states or life events that might influence dreams."
+topic_list_generation_prompt: "Provide a list of dream scenarios or symbols associated with ${category}."
+dataset_prompt: "Write a surreal dream sequence inspired by the ${category} theme: '${topic}'"
+ollama_prompt: "${prompt} Use poetic or fragmented imagery. Include sudden transitions, strange symbolism, and altered perception. Prioritize mood and metaphor over plot."
+mode: markdown
+
+# Spellbook Entries
+---
+name: generated-spellbook
+category_list_generation_prompt: "Provide a list of magical schools or elemental domains."
+topic_list_generation_prompt: "Provide a list of fictional spells or enchantments within the ${category} school."
+dataset_prompt: "Create a spellbook entry for '${topic}', a spell in the ${category} school."
+ollama_prompt: "${prompt} Include the incantation, required materials, casting process, effect, limitations, and origin lore. Present in an in-world, ancient tome style."
+mode: markdown
+
+# Alien Languages
+---
+name: generated-alien-languages
+category_list_generation_prompt: "Provide a list of alien species or fictional cultures."
+topic_list_generation_prompt: "Provide a list of phrases or ideas that the ${category} species might express."
+dataset_prompt: "Translate this phrase into the ${category} language: '${topic}'"
+ollama_prompt: "${prompt} Provide the alien translation, pronunciation guide, and literal meaning breakdown. Explain cultural context and any untranslatable nuances."
+mode: markdown
+
+# Prophecy Writing
+---
+name: generated-prophecy
+category_list_generation_prompt: "Provide a list of story types or genres where prophecies might appear."
+topic_list_generation_prompt: "Provide a list of fictional events or outcomes that could be foretold in a ${category} story."
+dataset_prompt: "Write a prophecy foretelling the event '${topic}' in a ${category} setting."
+ollama_prompt: "${prompt} Use cryptic or poetic language. Include symbolic references, dual meanings, and room for interpretation. Make it feel old and ominous."
+mode: markdown
+
+# Myth Creation
+---
+name: generated-myths
+category_list_generation_prompt: "Provide a list of natural phenomena or existential questions (e.g., seasons, death, fire, stars)."
+topic_list_generation_prompt: "Provide a list of fictional myths that explain ${category} through story."
+dataset_prompt: "Create a myth that explains '${topic}' as part of the ${category} concept."
+ollama_prompt: "${prompt} Use a mythic storytelling voice. Include gods, monsters, or ancestors. Focus on emotional truth, symbolic logic, and moral takeaway."
+mode: markdown
+
+# Lost Civilization Lore
+---
+name: generated-ancient-civs
+category_list_generation_prompt: "Provide a list of geographic or environmental regions where lost civilizations might have thrived."
+topic_list_generation_prompt: "Provide a list of fictional lost civilizations based in the ${category} region."
+dataset_prompt: "Write a lore entry about '${topic}', a lost civilization from the ${category} region."
+ollama_prompt: "${prompt} Include their culture, downfall, technology/magic, art, and what remains. Frame it as an archeological or historical summary."
+mode: markdown
+
+# Magic Ingredient Catalog
+---
+name: generated-ingredients
+category_list_generation_prompt: "Provide a list of magical fields (e.g., alchemy, herbalism, necromancy)."
+topic_list_generation_prompt: "Provide a list of rare ingredients used in ${category}."
+dataset_prompt: "Describe the ingredient '${topic}', used in ${category}."
+ollama_prompt: "${prompt} Include its appearance, where it’s found, how it’s harvested, what it does, side effects, and how it reacts with other ingredients."
+mode: markdown
+
+# Arcane Diagrams
+---
+name: generated-arcane-diagrams
+category_list_generation_prompt: "Provide a list of magical systems or disciplines that might use symbolic diagrams."
+topic_list_generation_prompt: "Provide a list of spell types or phenomena within the ${category} system that could be visualized."
+dataset_prompt: "Describe a symbolic diagram representing '${topic}' in the ${category} system."
+ollama_prompt: "${prompt} Describe the diagram’s structure, visual elements, symbolic meanings, and how it's interpreted by practitioners."
+mode: markdown
+
+# Familiar Profiles
+---
+name: generated-familiars
+category_list_generation_prompt: "Provide a list of wizard or witch archetypes."
+topic_list_generation_prompt: "Provide a list of familiars or magical companions suited to the ${category} archetype."
+dataset_prompt: "Describe '${topic}', a familiar creature for a ${category} spellcaster."
+ollama_prompt: "${prompt} Include personality, powers, appearance, origin, and the bond with the spellcaster."
+mode: markdown
+
+# Fictional Holidays
+---
+name: generated-holidays
+category_list_generation_prompt: "Provide a list of cultural or seasonal themes (e.g., harvest, mourning, rebirth)."
+topic_list_generation_prompt: "Provide a list of fictional holidays related to ${category}."
+dataset_prompt: "Describe the holiday '${topic}', which is based on the theme of ${category}."
+ollama_prompt: "${prompt} Include traditions, foods, rituals, symbolic decorations, and how different groups observe it."
+mode: markdown
+
+# Combat Narration
+---
+name: generated-combat-scenes
+category_list_generation_prompt: "Provide a list of combat styles or genres (e.g., martial arts, sci-fi, fantasy, horror)."
+topic_list_generation_prompt: "Provide a list of combat scenarios in the ${category} style."
+dataset_prompt: "Write a combat scene in the ${category} genre with this scenario: ${topic}"
+ollama_prompt: "${prompt} Focus on clarity, stakes, pacing, and character intent. Avoid blow-by-blow listing—highlight emotional rhythm and key turning points."
+mode: markdown
+
+# Sci-Fi Tech Specs
+---
+name: generated-scifi-tech
+category_list_generation_prompt: "Provide a list of futuristic tech categories (e.g., propulsion, cybernetics, AI, biotech)."
+topic_list_generation_prompt: "Provide a list of fictional technologies within the ${category} category."
+dataset_prompt: "Describe the fictional technology '${topic}' in the ${category} category."
+ollama_prompt: "${prompt} Write as a technical spec or academic-style summary. Include how it works, use cases, limitations, risks, and who built it."
+mode: markdown
+
+# Puzzle Room Design
+---
+name: generated-puzzle-rooms
+category_list_generation_prompt: "Provide a list of puzzle types or obstacle themes (e.g., logic, language, elemental, mechanical)."
+topic_list_generation_prompt: "Provide a list of fictional room challenges built around ${category}."
+dataset_prompt: "Design a puzzle room with the theme '${topic}' based on ${category}."
+ollama_prompt: "${prompt} Describe the setting, the puzzle mechanics, possible solutions, and consequences for failure."
+mode: markdown
+
+# Shapeshifter Logic
+---
+name: generated-shapeshift-logic
+category_list_generation_prompt: "Provide a list of shapeshifter rulesets or magical systems."
+topic_list_generation_prompt: "Provide a list of challenges or implications shapeshifters face within the ${category} system."
+dataset_prompt: "Explain the shapeshifter rules involved in: '${topic}' under the ${category} system."
+ollama_prompt: "${prompt} Describe physical and metaphysical effects, limitations, risks, and loopholes. Use in-world language when possible."
+mode: markdown
+
+# Strategy & Tactics Scenes
+---
+name: generated-strategy-scenes
+category_list_generation_prompt: "Provide a list of strategic planning contexts (e.g., military, political, heist, rebellion)."
+topic_list_generation_prompt: "Provide a list of tactical decisions or planning moments in a ${category} context."
+dataset_prompt: "Write a strategy scene where characters plan '${topic}' in a ${category} context."
+ollama_prompt: "${prompt} Include key players, conflicting priorities, map or location details, and character dynamics."
+mode: markdown
+
+# Battlefield & Terrain Design
+---
+name: generated-battlefield-lore
+category_list_generation_prompt: "Provide a list of environments where combat might take place (e.g., swamp, ruins, asteroid belt, dreamscape)."
+topic_list_generation_prompt: "Provide a list of battlefield scenarios set in a ${category} environment."
+dataset_prompt: "Design the battlefield '${topic}' in the ${category} environment."
+ollama_prompt: "${prompt} Describe terrain features, magical/technological hazards, tactical advantages, and history."
+mode: markdown
+
+# Exploration Events
+---
+name: generated-exploration-events
+category_list_generation_prompt: "Provide a list of exploratory settings (e.g., deep sea, outer space, forgotten temple, haunted forest)."
+topic_list_generation_prompt: "Provide a list of dramatic or mysterious discoveries made in a ${category} setting."
+dataset_prompt: "Describe an exploration event where characters discover '${topic}' in a ${category} location."
+ollama_prompt: "${prompt} Focus on sensory detail, emotional response, and worldbuilding implications. Include risk or choice elements."
+mode: markdown
+
+# Weapon Design
+---
+name: generated-weapons
+category_list_generation_prompt: "Provide a list of weapon types (e.g., sword, rifle, staff, parasite)."
+topic_list_generation_prompt: "Provide a list of unique fictional weapons in the ${category} type."
+dataset_prompt: "Describe the weapon '${topic}', a ${category} weapon."
+ollama_prompt: "${prompt} Include materials, history, power, side effects, user compatibility, and symbolic or cultural relevance."
+mode: markdown
