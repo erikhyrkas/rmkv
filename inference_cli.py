@@ -1,3 +1,4 @@
+# ./inference_cli.py
 import torch
 from model.rmkv import RMKVModel
 from data.tokenizer import RemarkableTokenizer
