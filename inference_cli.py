@@ -5,6 +5,8 @@ from training.checkpoint import load_from_checkpoint
 from config import PATHS
 import os
 
+# quick and dirty tool for testing.
+
 MAX_TOKENS = 64
 
 def main():
