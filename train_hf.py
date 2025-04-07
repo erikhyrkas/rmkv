@@ -90,7 +90,7 @@ def process_reasoning_text(tokenizer, prompt, response, for_pretraining, max_len
         text = prompt + " " + response
         text = re.sub(r"<think>|</think>", " ", text).strip()
     else:
-        text = f"{prompt}<start>{response}<end>"
+        text = f"{prompt} <start> {response} <end> "
 
     tokens = tokenizer.encode(text)
 
@@ -459,7 +459,8 @@ def evaluate(model, tokenizer, device, mode, max_samples=50):
 # -------------------------
 # Training Function
 # -------------------------
-def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pad_token_id, tokenizer, mode, start_step=0):
+def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pad_token_id, tokenizer, mode,
+          start_step=0):
     """
     Main training loop for the RMKV model.
 
@@ -545,7 +546,12 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
                     attention_mask = attention_mask.to(device)
 
                 outputs = model(inputs, attention_mask=attention_mask)
-                loss = loss_fn(outputs.view(-1, outputs.size(-1)), labels.view(-1))
+
+                logits = outputs  # [B, L, V]
+                active_mask = attention_mask.reshape(-1) > 0
+                active_logits = logits.view(-1, logits.size(-1))[active_mask]
+                active_labels = labels.view(-1)[active_mask]
+                loss = loss_fn(active_logits, active_labels)
 
             loss.backward()
 
@@ -583,7 +589,8 @@ class SegmentedDataset(IterableDataset):
         self.source = source
 
         if source == "fineweb":
-            self.stream = iter(load_dataset("HuggingFaceFW/fineweb", name="CC-MAIN-2024-51", split="train", streaming=True))
+            self.stream = iter(
+                load_dataset("HuggingFaceFW/fineweb", name="CC-MAIN-2024-51", split="train", streaming=True))
         elif source == "reasoning":
             self.stream = iter(load_dataset("glaiveai/reasoning-v1-20m", split="train"))
         else:
@@ -624,6 +631,40 @@ class SegmentedDataset(IterableDataset):
         return {"input_ids": input_tensor, "attention_mask": attention_mask}
 
 
+def load_last_checkpoint(model, device, mode):
+    def get_latest_ckpt(mode_prefix):
+        ckpts = [f for f in os.listdir(PATHS["checkpoint_dir"]) if
+                 f.startswith(f"rmkv_{mode_prefix}_step") and f.endswith(".pt")]
+        if ckpts:
+            ckpts.sort(key=lambda f: int(re.findall(r'step(\\d+)', f)[0]))
+            return os.path.join(PATHS["checkpoint_dir"], ckpts[-1])
+        final_file = os.path.join(PATHS["checkpoint_dir"], f"rmkv_{mode_prefix}_final.pt")
+        if os.path.exists(final_file):
+            return final_file
+        return None
+
+    start_step = 0
+    if mode == "focus":
+        ckpt = get_latest_ckpt("focus")
+    elif mode == "flow":
+        ckpt = get_latest_ckpt("flow") or get_latest_ckpt("focus")
+    elif mode == "finetune":
+        ckpt = get_latest_ckpt("finetune") or get_latest_ckpt("flow")
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
+
+    if ckpt and load_from_checkpoint(ckpt, model, device):
+        if ckpt.endswith("_final.pt"):
+            start_step = 0
+        else:
+            start_step = int(re.findall(r'step(\\d+)', ckpt)[0])
+        print(f"[Resume] Loaded checkpoint: {os.path.basename(ckpt)} at step {start_step}")
+    else:
+        print(f"[Start] No checkpoint found for mode '{mode}'. Initializing fresh model.")
+
+    return start_step
+
+
 # -------------------------
 # Main Entry Point
 # -------------------------
@@ -661,17 +702,7 @@ def main(mode="pretrain"):
     model = RMKVModel(tokenizer.vocab_size_actual).to(device)
 
     # === Checkpoint resume logic ===
-    start_step = 0
-    ckpts = [f for f in os.listdir(PATHS["checkpoint_dir"]) if f.startswith(f"rmkv_{mode}_step") and f.endswith(".pt")]
-    if ckpts:
-        ckpts.sort(key=lambda f: int(re.findall(r'step(\\d+)', f)[0]))
-        latest_ckpt = ckpts[-1]
-        checkpoint_path = os.path.join(PATHS["checkpoint_dir"], latest_ckpt)
-        if load_from_checkpoint(checkpoint_path, model, device):
-            start_step = int(re.findall(r'step(\\d+)', latest_ckpt)[0])
-            print(f"[Resume] Loaded checkpoint: {latest_ckpt} at step {start_step}")
-        else:
-            print(f"[Warning] Failed to load checkpoint: {latest_ckpt}. Starting from scratch.")
+    start_step = load_last_checkpoint(model, device, mode)
 
     # === Dataset and Dataloader setup ===
     if is_focus:
