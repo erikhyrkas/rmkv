@@ -18,7 +18,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
-    ckpt_path = os.path.join(PATHS["checkpoint_dir"], "rmkv_finetune_step50000.pt")
+    ckpt_path = os.path.join(PATHS["checkpoint_dir"], "rmkv_latest.pt")
     load_from_checkpoint(ckpt_path, model, device)
 
     model.eval()
