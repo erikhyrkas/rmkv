@@ -521,9 +521,10 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
                     labels = segment[:, 1:]
                     input_mask = mask[:, :-1]
 
-                    if step % 100 == 0:
-                        num_valid = input_mask.sum().item()
-                        print(f"[Debug] Step {step}: {num_valid} real tokens in batch")
+                    # 1016.0 real tokens in batch
+                    # if step % 100 == 0:
+                    #     num_valid = input_mask.sum().item()
+                    #     print(f"[Debug] Step {step}: {num_valid} real tokens in batch")
 
                     logits, memory = model.generate_step(inputs.tolist(), memory, input_mask)
 
