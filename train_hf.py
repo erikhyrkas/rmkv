@@ -528,8 +528,8 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
                     logits, memory = model.generate_step(inputs.tolist(), memory, input_mask)
 
                     active_loss = input_mask.reshape(-1) > 0
-                    active_logits = logits.view(-1, logits.size(-1))[active_loss]
-                    active_labels = labels.view(-1)[active_loss]
+                    active_logits = logits.reshape(-1, logits.size(-1))[active_loss]
+                    active_labels = labels.reshape(-1)[active_loss]
                     loss = loss_fn(active_logits, active_labels)
                     batch_loss += loss
 
