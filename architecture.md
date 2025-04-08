@@ -101,7 +101,6 @@ The model employs a mixed-source data streaming approach:
 
 - Synthetic data generation for instruction tuning
 - Test with MinimalRNN
-- ROPE testing
 - MoE testing
 - Fine-tuning with reinforcement learning
 - Expanded documentation and examples

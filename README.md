@@ -68,58 +68,15 @@ remarkable_five/
 ## Usage
 
 ### Training
-Train tokenizer:
+There are a bunch of options, but the gist is:
+
 ```bash
 python train_tokenizer_hf.py --vocab_size 30000 --max_samples 250000
+python train_hf.py --mode focus
+python train_hf.py --mode flow
+python train_hf.py --mode finetune
 ```
 
-#### Pretraining
-To start pretraining the RMKV model from scratch:
-```bash
-python train.py --mode pretrain
-```
-
-To resume pretraining from the latest checkpoint:
-```bash
-python train.py --mode pretrain
-```
-(You'll be prompted to confirm if you want to resume)
-
-To restart pretraining from scratch (removing existing checkpoints):
-```bash
-python train.py --mode pretrain
-```
-(Answer 'Y' when prompted to restart)
-
-#### Finetuning
-To start finetuning after pretraining:
-```bash
-python train.py --mode finetune
-```
-This will automatically use the latest pretraining checkpoint.
-
-To specify a particular checkpoint for finetuning:
-```bash
-python train.py --mode finetune --checkpoint checkpoints/rmkv_pretrain_epoch_10.pt
-```
-
-To continue finetuning from a previous finetuning run:
-```bash
-python train.py --mode finetune
-```
-(You'll be prompted to confirm if you want to resume)
-
-To reset epoch counting when loading a checkpoint:
-```bash
-python train.py --mode finetune --checkpoint checkpoints/rmkv_pretrain_latest.pt --reset_epochs
-```
-
-#### Using Custom Data Directories
-To specify a custom data directory:
-```bash
-python train.py --mode pretrain --data_dir /path/to/pretrain_data
-python train.py --mode finetune --data_dir /path/to/finetune_data
-```
 
 ### Inference
 

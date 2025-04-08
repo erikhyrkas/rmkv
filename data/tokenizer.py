@@ -6,11 +6,13 @@
 import os
 from tokenizers import Tokenizer
 from tokenizers.models import BPE
-from tokenizers.pre_tokenizers import ByteLevel
+from tokenizers.pre_tokenizers import ByteLevel, Digits
 from tokenizers.decoders import ByteLevel as ByteLevelDecoder
 from tokenizers.normalizers import NFD
 from tokenizers.processors import TemplateProcessing
 from config import PATHS
+from tokenizers.pre_tokenizers import Sequence, ByteLevel, PreTokenizer
+import re
 
 
 class RemarkableTokenizer:
@@ -69,7 +71,10 @@ class RemarkableTokenizer:
             self.tokenizer.normalizer = NFD()
 
             # Use ByteLevel pre-tokenizer with proper handling of whitespace
-            self.tokenizer.pre_tokenizer = ByteLevel(add_prefix_space=False)
+            self.tokenizer.pre_tokenizer = Sequence([
+                ByteLevel(add_prefix_space=False),
+                Digits(individual_digits=True)
+            ])
 
             # Use matching ByteLevel decoder to handle whitespace properly
             self.tokenizer.decoder = ByteLevelDecoder()

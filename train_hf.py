@@ -459,6 +459,33 @@ def evaluate(model, tokenizer, device, mode, max_samples=50):
     model.train()
 
 
+def trimmed_mean(times: deque, trim_ratio=0.125):
+    """
+    Calculate the trimmed mean of a list of times.
+
+    Args:
+        times (list): List of float values (batch times).
+        trim_ratio (float): Fraction to trim from each end (default 0.125 for 12.5%).
+
+    Returns:
+        float: The trimmed mean of the list.
+    """
+    if not times:
+        return 0.0
+    sorted_times = sorted(times)
+    n = len(sorted_times)
+
+    # Determine the number of values to drop from each end
+    trim_count = int(n * trim_ratio)
+
+    # Ensure we have enough data to trim; if not, use the full list.
+    if n < 4:
+        trimmed_times = sorted_times
+    else:
+        trimmed_times = sorted_times[trim_count:n - trim_count]
+
+    return sum(trimmed_times) / len(trimmed_times)
+
 # -------------------------
 # Training Function
 # -------------------------
@@ -495,7 +522,7 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
     start_time = time.time()
     is_flow = mode == "flow"
     max_steps_from_config = config.get("max_steps")
-    recent_times = deque(maxlen=100)
+    recent_times = deque(maxlen=200)
 
     for epoch in range(config["num_epochs"]):
         pbar = tqdm(dataloader, desc=f"{mode} Epoch {epoch + 1}", dynamic_ncols=True)
@@ -617,7 +644,7 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
             current_step_time = time.time() - step_start
             recent_times.append(current_step_time)
             if step > 10 and max_steps_from_config:
-                avg_recent_time = sum(recent_times) / len(recent_times)
+                avg_recent_time = trimmed_mean(recent_times, trim_ratio=0.2)
                 steps_remaining = max_steps_from_config - step
                 eta = steps_remaining * avg_recent_time
             else:
