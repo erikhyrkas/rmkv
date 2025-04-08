@@ -34,11 +34,13 @@ FINETUNE_CONFIG = {
     "learning_rate": 5e-5,              # Lower learning rate for fine-tuning
     "batch_size": 4,                    # Smaller batch size for more precise updates
     "weight_decay": 1e-2,
+    "max_steps": 9250000,               # ~(22 million reasoning + 15 million nemotron) / 4 batch size
     "num_epochs": 1,                    # Fewer epochs for fine-tuning
     "gradient_accumulation_steps": 4,
     "warmup_steps": 200,                # Fewer warmup steps for fine-tuning
     "max_grad_norm": 0.5,               # Stricter gradient clipping for stability
     "fp16": True,
+    "max_segment_len": 64,              # max segments for fine-tuning
     "seed": 42,
 }
 

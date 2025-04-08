@@ -8,6 +8,8 @@
 # The script implements interleaved streaming from multiple data sources
 # to balance different data types during training.
 import os
+from collections import deque
+
 import torch
 from torch.utils.data import DataLoader, IterableDataset
 from datasets import load_dataset
@@ -22,7 +24,8 @@ import random
 from training.checkpoint import save_checkpoint
 
 
-# python train_hf.py --mode pretrain
+# python train_hf.py --mode focus
+# python train_hf.py --mode flow
 # python train_hf.py --mode finetune
 
 
@@ -491,23 +494,27 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
     loss_fn = torch.nn.CrossEntropyLoss(ignore_index=pad_token_id)
     start_time = time.time()
     is_flow = mode == "flow"
+    max_steps_from_config = config.get("max_steps")
+    recent_times = deque(maxlen=100)
 
     for epoch in range(config["num_epochs"]):
         pbar = tqdm(dataloader, desc=f"{mode} Epoch {epoch + 1}", dynamic_ncols=True)
         total_loss = 0
-
         for batch in pbar:
-            if config.get("max_steps") and step >= config["max_steps"]:
+            step_start = time.time()
+
+            if max_steps_from_config and step >= config["max_steps"]:
                 elapsed = time.time() - start_time
                 summary_path = os.path.join(PATHS["logs_dir"], f"{mode}_summary.log")
                 with open(summary_path, "w") as f:
-                    f.write(f"Final loss: {total_loss / (step + 1):.4f}\\n")
-                    f.write(f"Total steps: {step}\\n")
-                    f.write(f"Elapsed time: {time.strftime('%H:%M:%S', time.gmtime(elapsed))}\\n")
+                    f.write(f"Final loss: {total_loss / (step + 1):.4f}\n")
+                    f.write(f"Total steps: {step}\n")
+                    f.write(f"Elapsed time: {time.strftime('%H:%M:%S', time.gmtime(elapsed))}\n")
                 print(f"Training complete. Summary written to {summary_path}")
                 return
 
             if is_flow:
+                # --- Flow mode remains unchanged ---
                 input_ids = batch["input_ids"].to(device)  # [B, S, L]
                 attention_mask = batch["attention_mask"].to(device)  # [B, S, L]
                 B, S, L = input_ids.shape
@@ -522,23 +529,67 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
                     labels = segment[:, 1:]
                     input_mask = mask[:, :-1]
 
-                    # 1016.0 real tokens in batch
-                    # if step % 100 == 0:
-                    #     num_valid = input_mask.sum().item()
-                    #     print(f"[Debug] Step {step}: {num_valid} real tokens in batch")
-
                     logits, memory = model.generate_step(inputs.tolist(), memory, input_mask)
 
-                    active_loss = input_mask.reshape(-1) > 0
+                    active_loss = input_mask.reshape(-1) >= 0  # valid tokens have mask==0
                     active_logits = logits.reshape(-1, logits.size(-1))[active_loss]
                     active_labels = labels.reshape(-1)[active_loss]
-                    loss = loss_fn(active_logits, active_labels)
-                    batch_loss += loss
+                    loss_seg = loss_fn(active_logits, active_labels)
+                    batch_loss += loss_seg
 
                 loss = batch_loss / S
 
+            elif mode == "finetune":
+                # --- Finetune Mode: TBPTT with vectorized segments ---
+                # Get the sequence [B, L] and set a segment length (default to 128)
+                input_ids = batch["input_ids"].to(device)
+                attention_mask = batch["attention_mask"].to(device)
+                B, L = input_ids.shape
+                segment_len = config.get("max_segment_len", 128)
+
+                # Initialize recurrent memory for the batch
+                memory = model.initial_memory.expand(B, -1, -1).to(device)
+                batch_loss = 0.0
+                token_count = 0
+
+                # Process the sequence in segments
+                for i in range(0, L - 1, segment_len):
+                    seg_start = i
+                    seg_end = min(i + segment_len, L - 1)
+
+                    # Segment input and corresponding attention mask
+                    segment_input = input_ids[:, seg_start:seg_end]  # [B, seg_len]
+                    segment_attention = attention_mask[:, seg_start:seg_end]  # [B, seg_len]
+
+                    # Process the current segment; generate_step handles the forward pass over the segment,
+                    # and updates the memory state using the recurrent cell.
+                    logits, memory = model.generate_step(segment_input.tolist(), memory, segment_attention)
+
+                    # The target for each token is the next token in the sequence.
+                    segment_target = input_ids[:, seg_start + 1:seg_end + 1]
+
+                    # Compute loss only for positions where the attention mask is valid.
+                    # attention >= 0 so that valid tokens (mask==0) are active.
+                    active = segment_attention.reshape(-1) >= 0
+                    if active.sum() > 0:
+                        active_logits = logits.reshape(-1, logits.size(-1))[active]
+                        active_labels = segment_target.reshape(-1)[active]
+                        loss_seg = loss_fn(active_logits, active_labels)
+                        batch_loss += loss_seg
+                        token_count += active.sum().item()
+                    else:
+                        print(f"Warning: No valid tokens in segment [{seg_start}:{seg_end}]")
+
+                    memory = memory.detach()
+
+                if token_count > 0:
+                    loss = batch_loss / token_count
+                else:
+                    print("Warning: Batch produced no valid tokens.")
+                    continue
 
             else:
+                # --- Default processing remains unchanged ---
                 inputs = batch["input_ids"].to(device)
                 labels = inputs.clone()
                 attention_mask = batch.get("attention_mask", None)
@@ -546,13 +597,13 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
                     attention_mask = attention_mask.to(device)
 
                 outputs = model(inputs, attention_mask=attention_mask)
-
                 logits = outputs  # [B, L, V]
-                active_mask = attention_mask.reshape(-1) > 0
-                active_logits = logits.view(-1, logits.size(-1))[active_mask]
-                active_labels = labels.view(-1)[active_mask]
+                active_mask = attention_mask.reshape(-1) >= 0
+                active_logits = logits.reshape(-1, logits.size(-1))[active_mask]
+                active_labels = labels.reshape(-1)[active_mask]
                 loss = loss_fn(active_logits, active_labels)
 
+            # Backward pass and gradient accumulation
             loss.backward()
 
             if (step + 1) % config["gradient_accumulation_steps"] == 0:
@@ -563,16 +614,22 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
 
             total_loss += loss.item()
             avg_loss = total_loss / (step + 1)
-            elapsed = time.time() - start_time
-            steps_remaining = config.get("max_steps", 0) - step if config.get("max_steps") else 0
-            eta = steps_remaining / (step / elapsed) if step > 0 and config.get("max_steps") else 0
+            current_step_time = time.time() - step_start
+            recent_times.append(current_step_time)
+            if step > 10 and max_steps_from_config:
+                avg_recent_time = sum(recent_times) / len(recent_times)
+                steps_remaining = max_steps_from_config - step
+                eta = steps_remaining * avg_recent_time
+            else:
+                eta = 0
             eta_str = time.strftime('%H:%M:%S', time.gmtime(eta)) if eta else "--"
 
             pbar.set_postfix({"loss": f"{avg_loss:.4f}", "ETA": eta_str})
 
             if step % 1000 == 0 and step > 0:
-                with open(os.path.join(PATHS["logs_dir"], f"{mode}_step{step}.log"), "w") as f:
-                    f.write(f"Step {step} loss: {avg_loss:.4f}\\n")
+                log_path = os.path.join(PATHS["logs_dir"], f"{mode}_step.log")
+                with open(log_path, "w") as f:
+                    f.write(f"Step {step} loss: {avg_loss:.4f}\n")
 
             if step % 5000 == 0 and step > 0:
                 ckpt_path = os.path.join(PATHS["checkpoint_dir"], f"rmkv_{mode}_step{step}.pt")
