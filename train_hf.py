@@ -719,7 +719,7 @@ def load_last_checkpoint(model, device, mode):
     def get_latest_ckpt(mode_prefix):
         final_file = os.path.join(PATHS["checkpoint_dir"], f"rmkv_{mode_prefix}_final.pt")
         if os.path.exists(final_file):
-            return final_file
+            return final_file, 0
         file_prefix = f"rmkv_{mode_prefix}_step"
         ckpts = [f for f in os.listdir(PATHS["checkpoint_dir"]) if
                  f.startswith(file_prefix) and f.endswith(".pt")]
@@ -729,25 +729,21 @@ def load_last_checkpoint(model, device, mode):
                 next_step = int(checkpoint.replace(file_prefix, "").replace('.pt', ''))
                 if next_step > latest_step:
                     latest_step = next_step
-            return f'{file_prefix}{latest_step}.pt'
+            return os.path.join(PATHS["checkpoint_dir"], f'{file_prefix}{latest_step}.pt'), latest_step
 
-        return None
+        return None, 0
 
     start_step = 0
     if mode == "focus":
-        ckpt = get_latest_ckpt("focus")
+        ckpt, start_step = get_latest_ckpt("focus")
     elif mode == "flow":
-        ckpt = get_latest_ckpt("flow") or get_latest_ckpt("focus")
+        ckpt, start_step = get_latest_ckpt("flow") or get_latest_ckpt("focus")
     elif mode == "finetune":
-        ckpt = get_latest_ckpt("finetune") or get_latest_ckpt("flow")
+        ckpt, start_step = get_latest_ckpt("finetune") or get_latest_ckpt("flow")
     else:
         raise ValueError(f"Unknown mode: {mode}")
 
     if ckpt and load_from_checkpoint(ckpt, model, device):
-        if ckpt.endswith("_final.pt"):
-            start_step = 0
-        else:
-            start_step = int(re.findall(r'step(\\d+)', ckpt)[0])
         print(f"[Resume] Loaded checkpoint: {os.path.basename(ckpt)} at step {start_step}")
     else:
         print(f"[Start] No checkpoint found for mode '{mode}'. Initializing fresh model.")
