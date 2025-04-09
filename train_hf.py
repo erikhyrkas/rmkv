@@ -717,14 +717,20 @@ class SegmentedDataset(IterableDataset):
 
 def load_last_checkpoint(model, device, mode):
     def get_latest_ckpt(mode_prefix):
-        ckpts = [f for f in os.listdir(PATHS["checkpoint_dir"]) if
-                 f.startswith(f"rmkv_{mode_prefix}_step") and f.endswith(".pt")]
-        if ckpts:
-            ckpts.sort(key=lambda f: int(re.findall(r'step(\\d+)', f)[0]))
-            return os.path.join(PATHS["checkpoint_dir"], ckpts[-1])
         final_file = os.path.join(PATHS["checkpoint_dir"], f"rmkv_{mode_prefix}_final.pt")
         if os.path.exists(final_file):
             return final_file
+        file_prefix = f"rmkv_{mode_prefix}_step"
+        ckpts = [f for f in os.listdir(PATHS["checkpoint_dir"]) if
+                 f.startswith(file_prefix) and f.endswith(".pt")]
+        if ckpts:
+            latest_step = 0
+            for checkpoint in ckpts:
+                next_step = int(checkpoint.replace(file_prefix, "").replace('.pt', ''))
+                if next_step > latest_step:
+                    latest_step = next_step
+            return f'{file_prefix}{latest_step}.pt'
+
         return None
 
     start_step = 0
