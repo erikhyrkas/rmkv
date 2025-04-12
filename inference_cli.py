@@ -2,9 +2,10 @@
 import torch
 from model.rmkv import RMKVModel
 from data.tokenizer import RemarkableTokenizer
-from training.checkpoint import load_from_checkpoint
 from config import PATHS
 import os
+
+from training.checkpoint import load_for_inference
 
 # quick and dirty tool for testing.
 
@@ -19,7 +20,7 @@ def main():
     model.to(device)
 
     ckpt_path = os.path.join(PATHS["checkpoint_dir"], "rmkv_latest.pt")
-    load_from_checkpoint(ckpt_path, model, device)
+    load_for_inference(ckpt_path, model, device)
 
     model.eval()
     print("RMKV Inference Mode (Ctrl+C to exit)")

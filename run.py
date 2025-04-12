@@ -12,7 +12,7 @@ from config import PATHS, MODEL_CONFIG
 from model.rmkv import RMKVModel
 from data.tokenizer import RemarkableTokenizer
 from inference.infer import generate_text
-from training.checkpoint import load_from_checkpoint
+from training.checkpoint import load_for_inference
 
 
 def main():
@@ -65,7 +65,7 @@ def main():
     # Load checkpoint
     # First try the specified checkpoint, fall back to latest
     checkpoint_path = args.checkpoint or os.path.join(PATHS["checkpoint_dir"], "rmkv_latest.pt")
-    if not load_from_checkpoint(checkpoint_path, model, device):
+    if not load_for_inference(checkpoint_path, model, device):
         raise FileNotFoundError(f"No checkpoint found at {checkpoint_path}")
 
     # Print model information

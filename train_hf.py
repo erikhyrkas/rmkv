@@ -9,6 +9,7 @@
 # to balance different data types during training.
 import os
 from collections import deque
+import argparse
 
 import torch
 from torch.utils.data import DataLoader, IterableDataset
@@ -21,7 +22,7 @@ from tqdm import tqdm
 import time
 import re
 import random
-from training.checkpoint import save_checkpoint
+from training.checkpoint import save_checkpoint, load_for_training, load_for_inference
 import torch.nn.functional as F
 
 
@@ -641,6 +642,8 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
                 token_count = 0
                 i = 0
                 memory_trace = []
+                last_segment = None
+                last_attention = None
 
                 while i < (L - 1):
                     segment_len = random.randint(min_segment_length, max_segment_length)
@@ -655,6 +658,10 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
                         memory_trace.append(memory.detach())
 
                     logits, memory = model.generate_step(segment_input, memory, segment_attention)
+
+                    # Save the last segment seen
+                    last_segment = segment_input
+                    last_attention = segment_attention
 
                     active = segment_attention.reshape(-1) >= 0 if segment_attention is not None else torch.ones_like(
                         segment_target).bool().reshape(-1)
@@ -694,13 +701,10 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
 
                     loss = loss + contrastive_loss_weight * contrastive_loss
 
-                if len(memory_trace) > 0:
-                    # Get the same final segment as used normally
-                    segment = input_ids[:, -1]  # [B, L]
-                    mask = attention_mask[:, -1]  # [B, L]
-                    inputs = segment[:, :-1]
-                    labels = segment[:, 1:]
-                    input_mask = mask[:, :-1]
+                if len(memory_trace) > 0 and last_segment is not None and last_segment.ndim == 2:
+                    inputs = last_segment[:, :-1]
+                    labels = last_segment[:, 1:]
+                    input_mask = last_attention[:, :-1] if last_attention is not None else None
 
                     with torch.no_grad():
                         # Use zeroed memory (same shape, zeros)
@@ -827,7 +831,7 @@ class SegmentedDataset(IterableDataset):
         return {"input_ids": input_tensor, "attention_mask": attention_mask}
 
 
-def load_last_checkpoint(model, device, mode):
+def load_last_checkpoint(model, device, mode, optimizer=None, scheduler=None):
     def get_latest_ckpt(mode_prefix):
         final_file = os.path.join(PATHS["checkpoint_dir"], f"rmkv_{mode_prefix}_final.pt")
         if os.path.exists(final_file):
@@ -851,20 +855,27 @@ def load_last_checkpoint(model, device, mode):
     elif mode == "flow":
         ckpt, start_step = get_latest_ckpt("flow")
         if ckpt is None:
-            ckpt, start_step = get_latest_ckpt("focus")
+            ckpt, _ = get_latest_ckpt("focus")
     elif mode == "finetune":
         ckpt, start_step = get_latest_ckpt("finetune")
         if ckpt is None:
-            ckpt, start_step = get_latest_ckpt("flow")
+            ckpt, _ = get_latest_ckpt("flow")
     else:
         raise ValueError(f"Unknown mode: {mode}")
 
-    if ckpt and load_from_checkpoint(ckpt, model, device):
-        print(f"[Resume] Loaded checkpoint: {os.path.basename(ckpt)} at step {start_step}")
-    else:
-        print(f"[Start] No checkpoint found for mode '{mode}'. Initializing fresh model.")
+    if ckpt and optimizer is not None:
+        success, epoch = load_for_training(ckpt, model, optimizer, scheduler, device, start_step)
+        if success:
+            print(f"[Resume] Loaded training state from {os.path.basename(ckpt)} at step {start_step}")
+            return start_step
+    elif ckpt:
+        success = load_for_inference(ckpt, model, device)
+        if success:
+            print(f"[Resume] Loaded model weights from {os.path.basename(ckpt)}")
+            return start_step
 
-    return start_step
+    print(f"[Start] No checkpoint found for mode '{mode}'. Starting from scratch.")
+    return 0
 
 
 # -------------------------
@@ -912,8 +923,23 @@ def main(mode="pretrain"):
     tokenizer = RemarkableTokenizer(load_path=os.path.join(PATHS["tokenizer_dir"], "tokenizer.json"))
     model = RMKVModel(tokenizer.vocab_size_actual).to(device)
 
+    # === Optimizer and Scheduler ===
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"])
+
+    if config.get("max_steps"):
+        num_training_steps = config["max_steps"]
+    else:
+        approx_steps = 50000  # fallback
+        num_training_steps = approx_steps * config["num_epochs"]
+
+    scheduler = get_cosine_schedule_with_warmup(
+        optimizer,
+        num_warmup_steps=config["warmup_steps"],
+        num_training_steps=num_training_steps
+    )
+
     # === Checkpoint resume logic ===
-    start_step = load_last_checkpoint(model, device, mode)
+    start_step = load_last_checkpoint(model, device, mode, optimizer, scheduler)
 
     # === Dataset and Dataloader setup ===
     if is_focus:
@@ -930,21 +956,6 @@ def main(mode="pretrain"):
     else:
         dataset = InterleaveDataset(tokenizer, False, MODEL_CONFIG["max_seq_len"], weights=(0, 2, 1))
         dataloader = DataLoader(dataset, batch_size=config["batch_size"])
-
-    # === Optimizer and Scheduler ===
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"])
-
-    if config.get("max_steps"):
-        num_training_steps = config["max_steps"]
-    else:
-        approx_steps = 50000  # fallback
-        num_training_steps = approx_steps * config["num_epochs"]
-
-    scheduler = get_cosine_schedule_with_warmup(
-        optimizer,
-        num_warmup_steps=config["warmup_steps"],
-        num_training_steps=num_training_steps
-    )
 
     # === Start training ===
     train(
@@ -963,9 +974,6 @@ def main(mode="pretrain"):
 
 
 if __name__ == "__main__":
-    import argparse
-    from training.checkpoint import load_from_checkpoint
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", type=str, choices=["focus", "flow", "finetune"], default="focus")
     args = parser.parse_args()
