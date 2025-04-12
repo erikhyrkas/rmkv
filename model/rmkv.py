@@ -601,12 +601,12 @@ class RMKVModel(nn.Module):
         """
         return sum(p.numel() for p in self.parameters())
 
-    def forward(self, input_ids, attention_mask=None):
+    def forward(self, token_ids, attention_mask=None):
         """
         Forward pass through the RMKV model.
 
         Args:
-            input_ids: Tensor of shape (batch_size, seq_len) containing token indices
+            token_ids: Tensor of shape (batch_size, seq_len) containing token indices
             attention_mask: Optional tensor of shape (batch_size, seq_len) with properly
                            formatted values (0 for real tokens, -1e9 for padding).
                            Can be None during pretraining for efficiency.
@@ -620,31 +620,7 @@ class RMKVModel(nn.Module):
             3. Process through stacked RMKV blocks, updating memory at each layer
             4. Apply final LayerNorm and project to vocabulary logits
         """
-        # Ensure input_ids is a proper tensor
-        if not isinstance(input_ids, torch.Tensor):
-            input_ids = torch.tensor(input_ids, dtype=torch.long, device=next(self.parameters()).device)
-
-        # Make sure it's 2D (batch, seq_len)
-        if input_ids.dim() == 1:
-            input_ids = input_ids.unsqueeze(0)  # Add batch dimension
-
-        batch_size, seq_len = input_ids.size()
-
-        token_embeddings = self.token_embed(input_ids)  # (batch, seq_len, embed_dim)
-        x = token_embeddings
-
-        # Broadcast the initial memory for the batch and add positional embeddings
-        memory = self.initial_memory.expand(batch_size, -1, -1)
-
-        # Process through each RMKVBlock.
-        for layer in self.layers:
-            x, memory = layer(x, memory, self.rope, attention_mask)
-
-        x = self.ln_final(x)
-
-        # If we have an attention mask, we should only compute logits for valid tokens
-        logits = self.head(x)
-
+        logits, _ = self.generate_step(token_ids, attention_mask=attention_mask)
         return logits
 
     def _ensure_tensor(self, token_ids, device=None):
@@ -704,10 +680,9 @@ class RMKVModel(nn.Module):
         # Standardize token_ids to be a proper tensor
         token_tensor = self._ensure_tensor(token_ids)
 
-        batch_size = token_tensor.size(0)
-
         # Default to learned memory if not provided
         if memory is None:
+            batch_size = token_tensor.size(0)
             memory = self.initial_memory.expand(batch_size, -1, -1).to(token_tensor.device)
 
         hidden_states = self.token_embed(token_tensor)
