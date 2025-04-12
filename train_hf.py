@@ -701,6 +701,7 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
 
                     loss = loss + contrastive_loss_weight * contrastive_loss
 
+                # print(f"Last segment ndim: {last_segment.ndim} {last_segment.shape}")
                 if len(memory_trace) > 0 and last_segment is not None and last_segment.ndim == 2:
                     inputs = last_segment[:, :-1]
                     labels = last_segment[:, 1:]
