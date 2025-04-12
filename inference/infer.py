@@ -74,13 +74,7 @@ def generate_text(model, tokenizer, prompt, device, max_length=4096, temperature
         # Keep track of all generated token IDs
         all_token_ids = input_ids.copy()
 
-        # Initialize memory - either use provided or model's initial memory
-        if initial_memory is None:
-            memory = model.initial_memory.expand(1, -1, -1).to(device)
-            # Add memory positional embeddings
-            memory = memory + model.memory_pos_embed
-        else:
-            memory = initial_memory
+        memory = initial_memory
 
         # Process input prompt in segments if needed (for prompts > max_seq_len)
         # This allows handling arbitrarily long prompts by processing them in chunks

@@ -21,7 +21,7 @@ import random
 def main():
     parser = argparse.ArgumentParser(description="Train tokenizer on Hugging Face datasets")
     parser.add_argument("--vocab_size", type=int, default=30000, help="Vocabulary size")
-    parser.add_argument("--max_samples", type=int, default=None,
+    parser.add_argument("--max_samples", type=int, default=250000,
                         help="Maximum number of samples to stream (total from both datasets)")
     parser.add_argument("--fineweb_ratio", type=int, default=9, help="Ratio of fineweb samples")
     parser.add_argument("--reasoning_ratio", type=int, default=1, help="Ratio of reasoning samples")

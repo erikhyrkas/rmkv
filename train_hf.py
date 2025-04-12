@@ -13,7 +13,7 @@ from collections import deque
 import torch
 from torch.utils.data import DataLoader, IterableDataset
 from datasets import load_dataset
-from config import MODEL_CONFIG, PRETRAIN_CONFIG, FINETUNE_CONFIG, PATHS
+from config import MODEL_CONFIG, FOCUS_CONFIG, FINETUNE_CONFIG, PATHS, FLOW_CONFIG
 from model.rmkv import RMKVModel
 from data.tokenizer import RemarkableTokenizer
 from transformers import get_cosine_schedule_with_warmup
@@ -29,7 +29,7 @@ from training.checkpoint import save_checkpoint
 # python train_hf.py --mode finetune
 
 
-def process_fineweb_text(tokenizer, text, max_length=1024):
+def process_fineweb_text(tokenizer, text, max_length):
     """
     Process text from the Fineweb dataset for tokenizer training.
 
@@ -44,7 +44,7 @@ def process_fineweb_text(tokenizer, text, max_length=1024):
     Note:
         Handles padding for short sequences and truncation for long ones.
     """
-    text = text.strip()
+    text = text.strip() + "\n\n---\n"
     if not text:
         return None
     tokens = tokenizer.encode(text)
@@ -64,7 +64,7 @@ def process_fineweb_text(tokenizer, text, max_length=1024):
     return {"input_ids": tokens, "attention_mask": attention_mask}
 
 
-def process_reasoning_text(tokenizer, prompt, response, for_pretraining, max_length=1024):
+def process_reasoning_text(tokenizer, prompt, response, for_pretraining, max_length):
     """
     Process text from the reasoning dataset for tokenizer training.
 
@@ -90,10 +90,11 @@ def process_reasoning_text(tokenizer, prompt, response, for_pretraining, max_len
         return None
 
     if for_pretraining:
-        text = prompt + " " + response
-        text = re.sub(r"<think>|</think>", " ", text).strip()
+        text = prompt + "\n" + response
+        text = re.sub(r"<think>|</think>", "\n", text).strip() + "\n\n@@@@\n"
     else:
-        text = f"{prompt} <start> {response} <end> "
+        sep1 = random.choice([" ", "\n", ""])
+        text = f"{prompt}{sep1}<start>{response}<end>"
 
     tokens = tokenizer.encode(text)
 
@@ -110,7 +111,7 @@ def process_reasoning_text(tokenizer, prompt, response, for_pretraining, max_len
     return {"input_ids": tokens, "attention_mask": attention_mask}
 
 
-def process_nemotron_text(tokenizer, prompt, response, for_pretraining, max_length=1024):
+def process_nemotron_text(tokenizer, prompt, response, for_pretraining, max_length):
     """
     Process text from the Nemotron dataset for tokenizer training.
 
@@ -130,32 +131,43 @@ def process_nemotron_text(tokenizer, prompt, response, for_pretraining, max_leng
         Handles Nemotron's specific format with <|end_header_id|> and <|eot_id|>
         markers, converting to RMKV's format with <start> and <end> tokens.
     """
-    if "<|end_header_id|>" not in prompt:
-        return None
-    try:
+    if isinstance(prompt, list):
+        prompt = prompt[0] if len(prompt) > 0 else None
+    if isinstance(prompt, dict):
+        prompt = prompt.get("content", None)
+    if prompt is None:
+        raise ValueError(f"Invalid prompt: {prompt}")
+    prompt = prompt.strip()
+    if "<|end_header_id|>" in prompt:
         prompt_parts = prompt.split("user<|end_header_id|>")
         instruction_part = prompt_parts[1].split("<|eot_id|>")[0].strip()
         response_part = response.split("<|eot_id|>")[0].strip()
         if for_pretraining:
-            full_text = instruction_part + " " + response_part
-            full_text = re.sub(r"<think>|</think>", " ", full_text).strip()
+            full_text = instruction_part + "\n" + response_part
+            full_text = re.sub(r"<think>|</think>", "\n", full_text).strip() + "\n\n@@@@\n"
         else:
-            full_text = f"{instruction_part}<start>{response_part}<end>"
-        tokens = tokenizer.encode(full_text)
-
-        # Create attention mask (0 for real tokens, -1e9 for padding)
-        attention_mask = [0] * min(len(tokens), max_length)
-
-        if len(tokens) > max_length:
-            tokens = tokens[:max_length]
+            sep1 = random.choice([" ", "\n", ""])
+            full_text = f"{instruction_part}{sep1}<start>{response_part}<end>"
+    else:
+        if for_pretraining:
+            full_text = prompt + "\n" + response
+            full_text = re.sub(r"<think>|</think>", "\n", full_text).strip() + "\n\n@@@@\n"
         else:
-            padding_length = max_length - len(tokens)
-            tokens += [tokenizer.pad_token_id] * padding_length
-            attention_mask += [-1e9] * padding_length
+            sep1 = random.choice([" ", "\n", ""])
+            full_text = f"{prompt}{sep1}<start>{response.strip()}<end>"
+    tokens = tokenizer.encode(full_text)
 
-        return {"input_ids": tokens, "attention_mask": attention_mask}
-    except Exception:
-        return None
+    # Create attention mask (0 for real tokens, -1e9 for padding)
+    attention_mask = [0] * min(len(tokens), max_length)
+
+    if len(tokens) > max_length:
+        tokens = tokens[:max_length]
+    else:
+        padding_length = max_length - len(tokens)
+        tokens += [tokenizer.pad_token_id] * padding_length
+        attention_mask += [-1e9] * padding_length
+
+    return {"input_ids": tokens, "attention_mask": attention_mask}
 
 
 # -------------------------
@@ -180,7 +192,7 @@ class FinewebIterator:
         never crashes due to problematic samples.
     """
 
-    def __init__(self, tokenizer, max_length=1024):
+    def __init__(self, tokenizer, max_length):
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.dataset = load_dataset("HuggingFaceFW/fineweb", name="CC-MAIN-2024-51", split="train", streaming=True)
@@ -228,7 +240,7 @@ class ReasoningIterator:
         support the reasoning pattern in the model's training.
     """
 
-    def __init__(self, tokenizer, for_pretraining, max_length=1024):
+    def __init__(self, tokenizer, for_pretraining, max_length):
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.dataset = load_dataset("glaiveai/reasoning-v1-20m", split="train")
@@ -242,21 +254,21 @@ class ReasoningIterator:
         while True:
             try:
                 row = next(self.iterator)
-                prompt = row.get("prompt", "")
-                response = row.get("response", "")
-                tokens = process_reasoning_text(self.tokenizer, prompt, response, self.max_length)
-                if tokens:
-                    return {
-                        "input_ids": torch.tensor(tokens["input_ids"], dtype=torch.long),
-                        "attention_mask": torch.tensor(tokens["attention_mask"], dtype=torch.float)
-                    }
+                prompt = row.get("prompt", None)
+                response = row.get("response", None)
+                if prompt is None or response is None:
+                    raise ValueError(f"Invalid row {row}")
+
+                tokens = process_reasoning_text(self.tokenizer, prompt, response, self.for_pretraining, self.max_length)
+                if not tokens:
+                    raise ValueError(f"No reasoning tokens found for:\n{prompt}\n{response}")
+                return {
+                    "input_ids": torch.tensor(tokens["input_ids"], dtype=torch.long),
+                    "attention_mask": torch.tensor(tokens["attention_mask"], dtype=torch.float)
+                }
             except StopIteration:
                 # Restart dataset iterator
                 self.iterator = iter(self.dataset)
-                continue
-            except Exception:
-                # Skip problematic entries
-                continue
 
 
 class NemotronIterator:
@@ -278,7 +290,7 @@ class NemotronIterator:
         handling any loading errors or stream interruptions gracefully.
     """
 
-    def __init__(self, tokenizer, for_pretraining, max_length=1024):
+    def __init__(self, tokenizer, for_pretraining, max_length):
         self.tokenizer = tokenizer
         self.max_length = max_length
         # Load just one split at a time to avoid the list issue
@@ -289,62 +301,51 @@ class NemotronIterator:
         self.for_pretraining = for_pretraining
 
         # Initialize with the first split
-        self.init_current_split()
+        self.init_split(self.splits[self.current_split_idx])
 
-    def init_current_split(self):
+    def init_split(self, split_label):
         """Initialize the current split"""
-        current_split = self.splits[self.current_split_idx]
-        if current_split not in self.datasets:
-            try:
-                self.datasets[current_split] = load_dataset(
-                    "nvidia/Llama-Nemotron-Post-Training-Dataset-v1",
-                    "SFT",
-                    split=current_split,
-                    streaming=True
-                )
-                self.iterators[current_split] = iter(self.datasets[current_split])
-            except Exception as e:
-                print(f"Error loading {current_split} dataset: {e}")
-                # Move to next split on error
-                self.current_split_idx = (self.current_split_idx + 1) % len(self.splits)
-                self.init_current_split()
+        if split_label not in self.datasets:
+            self.datasets[split_label] = load_dataset(
+                "nvidia/Llama-Nemotron-Post-Training-Dataset-v1",
+                "SFT",
+                split=split_label,
+                streaming=True
+            )
+            self.iterators[split_label] = iter(self.datasets[split_label])
 
     def __iter__(self):
         return self
 
-    def __next__(self):
-        current_split = self.splits[self.current_split_idx]
-        max_tries = 3
-
-        for _ in range(max_tries * len(self.splits)):  # Try all splits if needed
+    def next_from_current_split(self):
+        while True:
+            current_split_label = self.splits[self.current_split_idx]
+            # Initialize if needed
+            if current_split_label not in self.iterators:
+                self.init_split(current_split_label)
             try:
-                row = next(self.iterators[current_split])
-                prompt = row.get("input", "")
-                response = row.get("output", "")
-                tokens = process_nemotron_text(self.tokenizer, prompt, response, self.for_pretraining, self.max_length)
-                if tokens:
-                    return {
-                        "input_ids": torch.tensor(tokens["input_ids"], dtype=torch.long),
-                        "attention_mask": torch.tensor(tokens["attention_mask"], dtype=torch.float)
-                    }
+                row = next(self.iterators[current_split_label])
+                if row:
+                    return row
             except StopIteration:
                 # Rotate to next split
                 self.current_split_idx = (self.current_split_idx + 1) % len(self.splits)
-                current_split = self.splits[self.current_split_idx]
-                # Initialize if needed
-                if current_split not in self.iterators:
-                    self.init_current_split()
-                else:
-                    # Restart the iterator
-                    self.iterators[current_split] = iter(self.datasets[current_split])
-            except Exception as e:
-                # Skip problematic entries
-                continue
+                if current_split_label in self.iterators:
+                    self.iterators[current_split_label] = iter(self.datasets[current_split_label])
 
-        # If we're here, we failed to get a valid sample from any split
-        # Return a dummy sample instead of raising an exception
-        dummy_tokens = [self.tokenizer.pad_token_id] * self.max_length
-        return {"input_ids": torch.tensor(dummy_tokens, dtype=torch.long)}
+    def __next__(self):
+        row = self.next_from_current_split()
+        prompt = row.get("input", None)
+        response = row.get("output", None)
+        if prompt is None or response is None:
+            raise ValueError(f"Invalid row {row}")
+        tokens = process_nemotron_text(self.tokenizer, prompt, response, self.for_pretraining, self.max_length)
+        if not tokens:
+            raise ValueError(f"No nemotron tokens found for:\n{prompt}\n{response}")
+        return {
+            "input_ids": torch.tensor(tokens["input_ids"], dtype=torch.long),
+            "attention_mask": torch.tensor(tokens["attention_mask"], dtype=torch.float)
+        }
 
 
 # -------------------------
@@ -373,7 +374,7 @@ class InterleaveDataset(IterableDataset):
         enabling infinite streaming for long training runs.
     """
 
-    def __init__(self, tokenizer, for_pretraining, max_length=1024, weights=(5, 1, 1)):
+    def __init__(self, tokenizer, for_pretraining, max_length, weights=(5, 1, 1)):
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.weights = weights
@@ -486,6 +487,7 @@ def trimmed_mean(times: deque, trim_ratio=0.125):
 
     return sum(trimmed_times) / len(trimmed_times)
 
+
 # -------------------------
 # Training Function
 # -------------------------
@@ -524,6 +526,9 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
     max_steps_from_config = config.get("max_steps")
     recent_times = deque(maxlen=200)
 
+    max_segment_length = config.get("max_segment_len", 256)
+    min_segment_length = min(64, int(max_segment_length/4))
+
     for epoch in range(config["num_epochs"]):
         pbar = tqdm(dataloader, desc=f"{mode} Epoch {epoch + 1}", dynamic_ncols=True)
         total_loss = 0
@@ -545,7 +550,7 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
                 input_ids = batch["input_ids"].to(device)  # [B, S, L]
                 attention_mask = batch["attention_mask"].to(device)  # [B, S, L]
                 B, S, L = input_ids.shape
-                memory = model.initial_memory.expand(B, -1, -1).to(device)
+                memory = None
                 batch_loss = 0
 
                 for i in range(S):
@@ -570,19 +575,24 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
                 # --- Finetune Mode: TBPTT with vectorized segments ---
                 # Get the sequence [B, L] and set a segment length (default to 128)
                 input_ids = batch["input_ids"].to(device)
-                attention_mask = batch["attention_mask"].to(device)
+                if 'attention_mask' in batch:
+                    attention_mask = batch["attention_mask"].to(device)
+                else:
+                    attention_mask = None
                 B, L = input_ids.shape
-                segment_len = config.get("max_segment_len", 128)
 
                 # Initialize recurrent memory for the batch
-                memory = model.initial_memory.expand(B, -1, -1).to(device)
+                memory = None
                 batch_loss = 0.0
                 token_count = 0
 
                 # Process the sequence in segments
-                for i in range(0, L - 1, segment_len):
+                i = 0
+                while i < (L - 1):
+                    segment_len = random.randint(min_segment_length, max_segment_length)
                     seg_start = i
                     seg_end = min(i + segment_len, L - 1)
+                    i = seg_end
 
                     # Segment input and corresponding attention mask
                     segment_input = input_ids[:, seg_start:seg_end]  # [B, seg_len]
@@ -737,9 +747,13 @@ def load_last_checkpoint(model, device, mode):
     if mode == "focus":
         ckpt, start_step = get_latest_ckpt("focus")
     elif mode == "flow":
-        ckpt, start_step = get_latest_ckpt("flow") or get_latest_ckpt("focus")
+        ckpt, start_step = get_latest_ckpt("flow")
+        if ckpt is None:
+            ckpt, start_step = get_latest_ckpt("focus")
     elif mode == "finetune":
-        ckpt, start_step = get_latest_ckpt("finetune") or get_latest_ckpt("flow")
+        ckpt, start_step = get_latest_ckpt("finetune")
+        if ckpt is None:
+            ckpt, start_step = get_latest_ckpt("flow")
     else:
         raise ValueError(f"Unknown mode: {mode}")
 
@@ -779,7 +793,16 @@ def main(mode="pretrain"):
     assert mode in ["focus", "flow", "finetune"], "Invalid mode"
     is_flow = mode == "flow"
     is_focus = mode == "focus"
-    config = PRETRAIN_CONFIG if mode in ["focus", "flow"] else FINETUNE_CONFIG
+    match mode:
+        case "focus":
+            config = FOCUS_CONFIG
+        case "flow":
+            config = FLOW_CONFIG
+        case _:
+            config = FINETUNE_CONFIG
+
+    print(f"Mode: {mode}")
+    print(f"Config: {config}")
 
     torch.manual_seed(config["seed"])
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

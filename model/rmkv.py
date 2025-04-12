@@ -17,7 +17,7 @@ from config import MODEL_CONFIG
 # Key features:
 # - Memory tokens can attend to all tokens (global attention)
 # - Regular tokens use causal attention (can only see past tokens and memory)
-# - Memory is updated recurrently using a choice of cell types (GRU/LSTM/Minimal)
+# - Memory is updated recurrently using a choice of cell types (GRU/Minimal)
 # - Support for extremely long sequences through sinusoidal positional encodings
 # - Efficient inference with fixed memory size regardless of context length
 # -----------------------------------------------------------------------------
@@ -149,6 +149,8 @@ class RotaryPositionalEmbedding(nn.Module):
             return q_rot, k_rot
         else:
             return self._apply_rotary(q, k)
+
+
 # -----------------------------------------------------------------------------
 # Utility: Create a causal mask for the combined sequence (memory + tokens)
 # -----------------------------------------------------------------------------
@@ -240,7 +242,7 @@ class MinimalRNNCell(nn.Module):
     """
     A lightweight recurrent cell with simple gating mechanism.
 
-    This cell provides an efficient alternative to GRU and LSTM for memory updates.
+    This cell provides an efficient alternative to GRU and minimal rnn for memory updates.
     Given previous state h and input summary s, it computes:
         new_h = h * gate + (1 - gate) * siglu(candidate)
     where gate and candidate are derived from a linear transformation of [h, s].
@@ -339,12 +341,7 @@ class RecurrentMemoryCell(nn.Module):
 
      Args:
          embed_dim (int): Dimension of memory embeddings
-         cell_type (str): Type of cell to use: "gru", "lstm", or "minimal"
-
-     Note:
-         When using LSTM cells, only the hidden state (h) is tracked across
-         iterations; the cell state (c) is reset to zeros for each update.
-         This design choice prioritizes memory state consistency across cell types.
+         cell_type (str): Type of cell to use: "gru" or "minimal"
      """
 
     def __init__(self, embed_dim, cell_type="GRU"):
@@ -352,8 +349,6 @@ class RecurrentMemoryCell(nn.Module):
         self.cell_type = cell_type.lower()
         if self.cell_type == "gru":
             self.cell = nn.GRUCell(embed_dim, embed_dim)
-        elif self.cell_type == "lstm":
-            self.cell = nn.LSTMCell(embed_dim, embed_dim)
         elif self.cell_type == "minimal":
             self.cell = MinimalRNNCell(embed_dim)
         else:
@@ -368,12 +363,7 @@ class RecurrentMemoryCell(nn.Module):
         Returns:
             new_h: updated memory state (batch, embed_dim)
         """
-        if self.cell_type == "lstm":
-            # For LSTM, initialize cell state to zeros.
-            c0 = torch.zeros_like(h)
-            new_h, _ = self.cell(s, (h, c0))
-            return new_h
-        elif self.cell_type == "gru":
+        if self.cell_type == "gru":
             # GRU expects input first, then hidden state
             return self.cell(s, h)
         else:
@@ -460,7 +450,7 @@ class RMKVBlock(nn.Module):
         num_heads (int): Number of attention heads
         memory_tokens (int): Number of memory tokens
         dropout (float): Dropout probability
-        cell_type (str): Type of recurrent cell ("GRU", "LSTM", or "minimal")
+        cell_type (str): Type of recurrent cell ("GRU" or "minimal")
 
     Shape:
         - Input tokens: (batch_size, seq_len, embed_dim)
@@ -514,7 +504,7 @@ class RMKVBlock(nn.Module):
         mask = get_causal_mask(self.memory_tokens, seq_len, attention_mask, device)
 
         # 3. Process with QKV block using the mask.
-        out = self.qkv_block(combined, rope, mask=mask, rope_exclude=self.memory_tokens)
+        out = self.qkv_block(combined, rope, mask=mask, rope_exclude=0)
         out = self.dropout(out)
 
         # 4. Split output into memory and token parts.
@@ -561,7 +551,7 @@ class RMKVModel(nn.Module):
             - max_seq_len (int): Maximum sequence length
             - memory_tokens (int): Number of memory tokens
             - dropout (float): Dropout probability
-            - rnn_cell_type (str): Type of recurrent cell ("GRU", "LSTM", or "minimal")
+            - rnn_cell_type (str): Type of recurrent cell ("GRU" or "minimal")
             - use_sincos (bool): Whether to use sinusoidal positional encoding
 
     Shape:
@@ -576,17 +566,13 @@ class RMKVModel(nn.Module):
 
         self.token_embed = nn.Embedding(vocab_size, embed_dim)
 
-        max_seq_len = model_config["max_seq_len"]
-        self.rope = RotaryPositionalEmbedding(embed_dim, max_seq_len)
-
         self.memory_tokens = model_config["memory_tokens"]
+        max_seq_len = model_config["max_seq_len"]
+        self.rope = RotaryPositionalEmbedding(embed_dim, max_seq_len + self.memory_tokens)
+
         # Initialize memory tokens (learned and shared across the batch).
         self.initial_memory = nn.Parameter(torch.zeros(1, self.memory_tokens, embed_dim))
         nn.init.trunc_normal_(self.initial_memory, std=0.02)
-
-        # Add positional embedding for memory tokens to help with inter-memory attention
-        self.memory_pos_embed = nn.Parameter(torch.zeros(1, self.memory_tokens, embed_dim))
-        nn.init.trunc_normal_(self.memory_pos_embed, std=0.02)
 
         # Stack RMKVBlock layers.
         self.layers = nn.ModuleList([
@@ -649,7 +635,6 @@ class RMKVModel(nn.Module):
 
         # Broadcast the initial memory for the batch and add positional embeddings
         memory = self.initial_memory.expand(batch_size, -1, -1)
-        memory = memory + self.memory_pos_embed
 
         # Process through each RMKVBlock.
         for layer in self.layers:
@@ -695,7 +680,7 @@ class RMKVModel(nn.Module):
 
         return token_ids
 
-    def generate_step(self, token_ids, memory, attention_mask=None):
+    def generate_step(self, token_ids, memory=None, attention_mask=None):
         """
         Process a single generation step for autoregressive text generation.
 
@@ -718,6 +703,12 @@ class RMKVModel(nn.Module):
         """
         # Standardize token_ids to be a proper tensor
         token_tensor = self._ensure_tensor(token_ids)
+
+        batch_size = token_tensor.size(0)
+
+        # Default to learned memory if not provided
+        if memory is None:
+            memory = self.initial_memory.expand(batch_size, -1, -1).to(token_tensor.device)
 
         hidden_states = self.token_embed(token_tensor)
 

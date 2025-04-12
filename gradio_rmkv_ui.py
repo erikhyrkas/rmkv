@@ -53,7 +53,7 @@ demo = gr.Interface(
     fn=generate,
     inputs=[
         gr.Textbox(label="Prompt", lines=4, placeholder="Ask something..."),
-        gr.Slider(32, 1024, value=256, step=16, label="Max Length"),
+        gr.Slider(32, 4096, value=256, step=16, label="Max Length"),
         gr.Slider(0.1, 2.0, value=0.8, step=0.1, label="Temperature"),
         gr.Slider(0.1, 1.0, value=0.95, step=0.01, label="Top-p (nucleus sampling)")
     ],

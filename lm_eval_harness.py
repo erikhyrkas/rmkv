@@ -28,7 +28,7 @@ from config import PATHS
 #   --output_path results/truthfulqa.json
 
 class RMKVWrapper(BaseLM):
-    def __init__(self, checkpoint_path, max_length=1024, device=None):
+    def __init__(self, checkpoint_path, max_length, device=None):
         super().__init__()
         self.tokenizer = RemarkableTokenizer(load_path=f"{PATHS['tokenizer_dir']}/tokenizer.json")
         self.model = RMKVModel(self.tokenizer.vocab_size_actual)
