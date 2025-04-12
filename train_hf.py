@@ -714,16 +714,23 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
 
                         logits_ablation, _ = model.generate_step(inputs, dummy_memory, input_mask)
 
-                        active_loss = input_mask.reshape(-1) >= 0
+                        if input_mask is not None:
+                            active_loss = input_mask.reshape(-1) >= 0
+                        else:
+                            active_loss = torch.ones_like(labels.reshape(-1), dtype=torch.bool)
                         logits_ablation = logits_ablation.reshape(-1, logits_ablation.size(-1))[active_loss]
                         labels_ablation = labels.reshape(-1)[active_loss]
 
                         loss_ablation = loss_fn(logits_ablation, labels_ablation)
+                        loss_ablation = torch.nan_to_num(loss_ablation, nan=0.0, posinf=1e4, neginf=-1e4)
 
                         # Measure how much worse the model gets without memory
                         memory_effect = (loss - loss_ablation).item()
                         # print(f"[Memory Dependency] ΔLoss w/o memory: {memory_effect:.4f}")
-                        recent_delta_loss_without_memory.append(memory_effect)
+                        if not torch.isnan(torch.tensor(memory_effect)) and not torch.isinf(
+                                torch.tensor(memory_effect)):
+                            recent_delta_loss_without_memory.append(memory_effect)
+
                     weak_penalty_weight = 0.00001
                     loss = loss + weak_penalty_weight * memory_effect
             else:
