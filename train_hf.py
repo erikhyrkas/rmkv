@@ -22,6 +22,7 @@ import time
 import re
 import random
 from training.checkpoint import save_checkpoint
+import torch.nn.functional as F
 
 
 # python train_hf.py --mode focus
@@ -527,7 +528,7 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
     recent_times = deque(maxlen=200)
 
     max_segment_length = config.get("max_segment_len", 256)
-    min_segment_length = min(64, int(max_segment_length/4))
+    min_segment_length = min(64, int(max_segment_length / 4))
 
     for epoch in range(config["num_epochs"]):
         pbar = tqdm(dataloader, desc=f"{mode} Epoch {epoch + 1}", dynamic_ncols=True)
@@ -546,12 +547,12 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
                 return
 
             if is_flow:
-                # --- Flow mode remains unchanged ---
                 input_ids = batch["input_ids"].to(device)  # [B, S, L]
                 attention_mask = batch["attention_mask"].to(device)  # [B, S, L]
                 B, S, L = input_ids.shape
                 memory = None
                 batch_loss = 0
+                memory_trace = []
 
                 for i in range(S):
                     segment = input_ids[:, i]  # [B, L]
@@ -561,9 +562,13 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
                     labels = segment[:, 1:]
                     input_mask = mask[:, :-1]
 
-                    logits, memory = model.generate_step(inputs.tolist(), memory, input_mask)
+                    # Save memory snapshot before it gets updated
+                    if memory is not None:
+                        memory_trace.append(memory.detach())
 
-                    active_loss = input_mask.reshape(-1) >= 0  # valid tokens have mask==0
+                    logits, memory = model.generate_step(inputs, memory, input_mask)
+
+                    active_loss = input_mask.reshape(-1) >= 0
                     active_logits = logits.reshape(-1, logits.size(-1))[active_loss]
                     active_labels = labels.reshape(-1)[active_loss]
                     loss_seg = loss_fn(active_logits, active_labels)
@@ -571,53 +576,66 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
 
                 loss = batch_loss / S
 
+                # -----------------------------------------------------------------
+                # 🔀 Contrastive Memory Discrimination Loss (only if enough steps)
+                # -----------------------------------------------------------------
+                contrastive_loss_weight = 0.1
+                if len(memory_trace) >= 2:
+                    anchor = memory_trace[-1].mean(dim=1)  # [B, D]
+                    positive = memory_trace[-2].mean(dim=1)  # [B, D]
+                    negative = anchor[torch.randperm(B)]  # [B, D] — shuffled anchors
+
+                    anchor = F.normalize(anchor, dim=-1)
+                    positive = F.normalize(positive, dim=-1)
+                    negative = F.normalize(negative, dim=-1)
+
+                    sim_pos = (anchor * positive).sum(dim=-1)  # [B]
+                    sim_neg = (anchor * negative).sum(dim=-1)  # [B]
+                    logits_contrast = torch.stack([sim_pos, sim_neg], dim=1)  # [B, 2]
+                    targets_contrast = torch.zeros(B, dtype=torch.long, device=anchor.device)
+
+                    contrastive_loss = F.cross_entropy(logits_contrast, targets_contrast)
+                    loss = loss + contrastive_loss_weight * contrastive_loss
+
+
             elif mode == "finetune":
-                # --- Finetune Mode: TBPTT with vectorized segments ---
-                # Get the sequence [B, L] and set a segment length (default to 128)
                 input_ids = batch["input_ids"].to(device)
-                if 'attention_mask' in batch:
-                    attention_mask = batch["attention_mask"].to(device)
-                else:
-                    attention_mask = None
+                attention_mask = batch.get("attention_mask", None)
+
+                if attention_mask is not None:
+                    attention_mask = attention_mask.to(device)
+
                 B, L = input_ids.shape
 
-                # Initialize recurrent memory for the batch
                 memory = None
                 batch_loss = 0.0
                 token_count = 0
-
-                # Process the sequence in segments
                 i = 0
+                memory_trace = []
+
                 while i < (L - 1):
                     segment_len = random.randint(min_segment_length, max_segment_length)
                     seg_start = i
                     seg_end = min(i + segment_len, L - 1)
                     i = seg_end
-
-                    # Segment input and corresponding attention mask
                     segment_input = input_ids[:, seg_start:seg_end]  # [B, seg_len]
-                    segment_attention = attention_mask[:, seg_start:seg_end]  # [B, seg_len]
+                    segment_target = input_ids[:, seg_start + 1:seg_end + 1]  # [B, seg_len]
+                    segment_attention = attention_mask[:, seg_start:seg_end] if attention_mask is not None else None
 
-                    # Process the current segment; generate_step handles the forward pass over the segment,
-                    # and updates the memory state using the recurrent cell.
-                    logits, memory = model.generate_step(segment_input.tolist(), memory, segment_attention)
+                    if memory is not None:
+                        memory_trace.append(memory.detach())
 
-                    # The target for each token is the next token in the sequence.
-                    segment_target = input_ids[:, seg_start + 1:seg_end + 1]
+                    logits, memory = model.generate_step(segment_input, memory, segment_attention)
 
-                    # Compute loss only for positions where the attention mask is valid.
-                    # attention >= 0 so that valid tokens (mask==0) are active.
-                    active = segment_attention.reshape(-1) >= 0
+                    active = segment_attention.reshape(-1) >= 0 if segment_attention is not None else torch.ones_like(
+                        segment_target).bool().reshape(-1)
+
                     if active.sum() > 0:
                         active_logits = logits.reshape(-1, logits.size(-1))[active]
                         active_labels = segment_target.reshape(-1)[active]
                         loss_seg = loss_fn(active_logits, active_labels)
                         batch_loss += loss_seg
                         token_count += active.sum().item()
-                    else:
-                        print(f"Warning: No valid tokens in segment [{seg_start}:{seg_end}]")
-
-                    memory = memory.detach()
 
                 if token_count > 0:
                     loss = batch_loss / token_count
@@ -625,8 +643,29 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
                     print("Warning: Batch produced no valid tokens.")
                     continue
 
+                # -----------------------------------------------------------------
+                # 🔀 Contrastive Memory Discrimination Loss (only if enough segments)
+                # -----------------------------------------------------------------
+                contrastive_loss_weight = 0.03  # lower for finetune
+
+                if len(memory_trace) >= 2:
+                    anchor = memory_trace[-1].mean(dim=1)  # [B, D]
+                    positive = memory_trace[-2].mean(dim=1)  # [B, D]
+                    negative = anchor[torch.randperm(B)]  # [B, D] — shuffled anchors
+
+                    anchor = F.normalize(anchor, dim=-1)
+                    positive = F.normalize(positive, dim=-1)
+                    negative = F.normalize(negative, dim=-1)
+
+                    sim_pos = (anchor * positive).sum(dim=-1)  # [B]
+                    sim_neg = (anchor * negative).sum(dim=-1)  # [B]
+                    logits_contrast = torch.stack([sim_pos, sim_neg], dim=1)  # [B, 2]
+                    targets_contrast = torch.zeros(B, dtype=torch.long, device=anchor.device)
+                    contrastive_loss = F.cross_entropy(logits_contrast, targets_contrast)
+
+                    loss = loss + contrastive_loss_weight * contrastive_loss
+
             else:
-                # --- Default processing remains unchanged ---
                 inputs = batch["input_ids"].to(device)
                 labels = inputs.clone()
                 attention_mask = batch.get("attention_mask", None)
