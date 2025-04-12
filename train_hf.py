@@ -526,6 +526,7 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
     is_flow = mode == "flow"
     max_steps_from_config = config.get("max_steps")
     recent_times = deque(maxlen=200)
+    recent_delta_loss_without_memory = deque(maxlen=100)
 
     max_segment_length = config.get("max_segment_len", 256)
     min_segment_length = min(64, int(max_segment_length / 4))
@@ -597,6 +598,34 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
                     contrastive_loss = F.cross_entropy(logits_contrast, targets_contrast)
                     loss = loss + contrastive_loss_weight * contrastive_loss
 
+                if len(memory_trace) > 0:
+                    # Get the same final segment as used normally
+                    segment = input_ids[:, -1]  # [B, L]
+                    mask = attention_mask[:, -1]  # [B, L]
+                    inputs = segment[:, :-1]
+                    labels = segment[:, 1:]
+                    input_mask = mask[:, :-1]
+
+                    with torch.no_grad():
+                        # Use zeroed memory (same shape, zeros)
+                        # dummy_memory = torch.zeros_like(memory_trace[-1])
+                        dummy_memory = memory_trace[-1][torch.randperm(B)]
+
+                        logits_ablation, _ = model.generate_step(inputs, dummy_memory, input_mask)
+
+                        active_loss = input_mask.reshape(-1) >= 0
+                        logits_ablation = logits_ablation.reshape(-1, logits_ablation.size(-1))[active_loss]
+                        labels_ablation = labels.reshape(-1)[active_loss]
+
+                        loss_ablation = loss_fn(logits_ablation, labels_ablation)
+
+                        # Measure how much worse the model gets without memory
+                        memory_effect = (loss - loss_ablation).item()
+                        # print(f"[Memory Dependency] ΔLoss w/o memory: {memory_effect:.4f}")
+                        recent_delta_loss_without_memory.append(memory_effect)
+                    weak_penalty_weight = 0.00001
+                    loss = loss + weak_penalty_weight * memory_effect
+
 
             elif mode == "finetune":
                 input_ids = batch["input_ids"].to(device)
@@ -665,6 +694,33 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
 
                     loss = loss + contrastive_loss_weight * contrastive_loss
 
+                if len(memory_trace) > 0:
+                    # Get the same final segment as used normally
+                    segment = input_ids[:, -1]  # [B, L]
+                    mask = attention_mask[:, -1]  # [B, L]
+                    inputs = segment[:, :-1]
+                    labels = segment[:, 1:]
+                    input_mask = mask[:, :-1]
+
+                    with torch.no_grad():
+                        # Use zeroed memory (same shape, zeros)
+                        # dummy_memory = torch.zeros_like(memory_trace[-1])
+                        dummy_memory = memory_trace[-1][torch.randperm(B)]
+
+                        logits_ablation, _ = model.generate_step(inputs, dummy_memory, input_mask)
+
+                        active_loss = input_mask.reshape(-1) >= 0
+                        logits_ablation = logits_ablation.reshape(-1, logits_ablation.size(-1))[active_loss]
+                        labels_ablation = labels.reshape(-1)[active_loss]
+
+                        loss_ablation = loss_fn(logits_ablation, labels_ablation)
+
+                        # Measure how much worse the model gets without memory
+                        memory_effect = (loss - loss_ablation).item()
+                        # print(f"[Memory Dependency] ΔLoss w/o memory: {memory_effect:.4f}")
+                        recent_delta_loss_without_memory.append(memory_effect)
+                    weak_penalty_weight = 0.00001
+                    loss = loss + weak_penalty_weight * memory_effect
             else:
                 inputs = batch["input_ids"].to(device)
                 labels = inputs.clone()
@@ -700,7 +756,14 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
                 eta = 0
             eta_str = time.strftime('%H:%M:%S', time.gmtime(eta)) if eta else "--"
 
-            pbar.set_postfix({"loss": f"{avg_loss:.4f}", "ETA": eta_str})
+            if len(recent_delta_loss_without_memory) == 0:
+                avg_delta_loss_without_memory = 0
+            else:
+                avg_delta_loss_without_memory = sum(recent_delta_loss_without_memory) / len(
+                    recent_delta_loss_without_memory)
+
+            pbar.set_postfix({"loss": f"{avg_loss:.4f}", "ETA": eta_str,
+                              "memory effect": f"{avg_delta_loss_without_memory:.4f}"})
 
             if step % 1000 == 0 and step > 0:
                 log_path = os.path.join(PATHS["logs_dir"], f"{mode}_step.log")
