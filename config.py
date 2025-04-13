@@ -31,12 +31,16 @@ FOCUS_CONFIG = {
     "seed": 42,
 }
 
+# fineweb dec 31 2024 is 131b tokens
+# reading is 22 million entries -- lets guess at least 1000 tokens each, so at least 22b tokens, but probably more
+# nemotron is 15 million entries -- lets guess at least 1000 tokens each, so at least 15b tokens, but probably way more
+# roughly 183 billion tokens (but probably way more)
 FLOW_CONFIG = {
     "learning_rate": 5e-5,
     "batch_size": 3,
     "weight_decay": 1e-2,
     "num_epochs": 1,  # used for train.py
-    "max_steps": 16000000,  # used for train_hf.py 3 x 2048 x 16m = 6144 x 16m = 98.208b tokens
+    "max_steps": 30000000,  # used for train_hf.py 3 x 2048 x 30m = 6144 x 30m = 184.32b tokens
     "gradient_accumulation_steps": 4,  # Simulate larger batch sizes
     "warmup_steps": 1000,  # Number of warmup steps for the learning rate scheduler
     "max_grad_norm": 1.0,  # For gradient clipping
@@ -50,7 +54,7 @@ FINETUNE_CONFIG = {
     "learning_rate": 5e-5,  # Lower learning rate for fine-tuning
     "batch_size": 4,  # Smaller batch size for more precise updates
     "weight_decay": 1e-2,
-    "max_steps": 9250000,  # 9.25m steps = about 151.552b tokens, but there is padding. possible steps: ~(22 million reasoning + 15 million nemotron) / 4 batch size = 9,250,000 steps to touch whole dataset
+    "max_steps": 1000000,  # 1m steps = about 16b tokens, but there is padding on responses shorter than 4096. possible steps: ~(22 million reasoning + 15 million nemotron) / 4 batch size = 9,250,000 steps to touch whole dataset
     "num_epochs": 1,  # Fewer epochs for fine-tuning
     "gradient_accumulation_steps": 4,
     "warmup_steps": 200,  # Fewer warmup steps for fine-tuning
