@@ -592,56 +592,52 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
 
                 loss = batch_loss / S
 
-                # sadly, this is slow, and we have a LOT of data to look at.
-                # so, only do contrastive learning and ablation every 5 steps.
-                if step % 5 == 0:
-                    # Contrastive memory discrimination
-                    contrastive_loss_weight = 0.1
-                    if len(memory_trace) >= 2:
-                        anchor = memory_trace[-1].mean(dim=1)  # [B, D]
-                        positive = memory_trace[-2].mean(dim=1)  # [B, D]
-                        negative = anchor[torch.randperm(B)]  # [B, D] — shuffled anchors
+                # Contrastive memory discrimination
+                contrastive_loss_weight = 0.1
+                if len(memory_trace) >= 2:
+                    anchor = memory_trace[-1].mean(dim=1)  # [B, D]
+                    positive = memory_trace[-2].mean(dim=1)  # [B, D]
+                    negative = anchor[torch.randperm(B)]  # [B, D] — shuffled anchors
 
-                        anchor = F.normalize(anchor, dim=-1)
-                        positive = F.normalize(positive, dim=-1)
-                        negative = F.normalize(negative, dim=-1)
+                    anchor = F.normalize(anchor, dim=-1)
+                    positive = F.normalize(positive, dim=-1)
+                    negative = F.normalize(negative, dim=-1)
 
-                        sim_pos = (anchor * positive).sum(dim=-1)  # [B]
-                        sim_neg = (anchor * negative).sum(dim=-1)  # [B]
-                        logits_contrast = torch.stack([sim_pos, sim_neg], dim=1)  # [B, 2]
-                        targets_contrast = torch.zeros(B, dtype=torch.long, device=anchor.device)
+                    sim_pos = (anchor * positive).sum(dim=-1)  # [B]
+                    sim_neg = (anchor * negative).sum(dim=-1)  # [B]
+                    logits_contrast = torch.stack([sim_pos, sim_neg], dim=1)  # [B, 2]
+                    targets_contrast = torch.zeros(B, dtype=torch.long, device=anchor.device)
 
-                        contrastive_loss = F.cross_entropy(logits_contrast, targets_contrast)
-                        loss += contrastive_loss_weight * contrastive_loss
+                    contrastive_loss = F.cross_entropy(logits_contrast, targets_contrast)
+                    loss += contrastive_loss_weight * contrastive_loss
 
-                    if len(memory_trace) > 0:
-                        # Get the same final segment as used normally
-                        segment = input_ids[:, -1]  # [B, L]
-                        mask = attention_mask[:, -1]  # [B, L]
-                        inputs = segment[:, :-1]
-                        labels = segment[:, 1:]
-                        input_mask = mask[:, :-1]
+                if len(memory_trace) > 0:
+                    # Get the same final segment as used normally
+                    segment = input_ids[:, -1]  # [B, L]
+                    mask = attention_mask[:, -1]  # [B, L]
+                    inputs = segment[:, :-1]
+                    labels = segment[:, 1:]
+                    input_mask = mask[:, :-1]
 
-                        with torch.no_grad():
-                            # Use zeroed memory (same shape, zeros)
-                            # dummy_memory = torch.zeros_like(memory_trace[-1])
-                            dummy_memory = memory_trace[-1][torch.randperm(B)]
+                    with torch.no_grad():
+                        # Use zeroed memory (same shape, zeros)
+                        # dummy_memory = torch.zeros_like(memory_trace[-1])
+                        dummy_memory = memory_trace[-1][torch.randperm(B)]
 
-                            logits_ablation, _ = model.generate_step(inputs, dummy_memory, input_mask)
+                        logits_ablation, _ = model.generate_step(inputs, dummy_memory, input_mask)
 
-                            active_loss = input_mask.reshape(-1) >= 0
-                            logits_ablation = logits_ablation.reshape(-1, logits_ablation.size(-1))[active_loss]
-                            labels_ablation = labels.reshape(-1)[active_loss]
+                        active_loss = input_mask.reshape(-1) >= 0
+                        logits_ablation = logits_ablation.reshape(-1, logits_ablation.size(-1))[active_loss]
+                        labels_ablation = labels.reshape(-1)[active_loss]
 
-                            loss_ablation = loss_fn(logits_ablation, labels_ablation)
+                        loss_ablation = loss_fn(logits_ablation, labels_ablation)
 
-                            # Measure how much worse the model gets without memory
-                            memory_effect = (loss - loss_ablation).item()
-                            # print(f"[Memory Dependency] ΔLoss w/o memory: {memory_effect:.4f}")
-                            recent_delta_loss_without_memory.append(memory_effect)
-                        weak_penalty_weight = 0.00001
-                        loss = loss + weak_penalty_weight * memory_effect
-
+                        # Measure how much worse the model gets without memory
+                        memory_effect = (loss - loss_ablation).item()
+                        # print(f"[Memory Dependency] ΔLoss w/o memory: {memory_effect:.4f}")
+                        recent_delta_loss_without_memory.append(memory_effect)
+                    weak_penalty_weight = 0.00001
+                    loss = loss + weak_penalty_weight * memory_effect
 
             elif mode == "finetune":
                 input_ids = batch["input_ids"].to(device)
