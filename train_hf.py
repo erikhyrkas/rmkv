@@ -14,7 +14,7 @@ import argparse
 import torch
 from torch.utils.data import DataLoader, IterableDataset
 from datasets import load_dataset
-from config import MODEL_CONFIG, FOCUS_CONFIG, FINETUNE_CONFIG, PATHS, FLOW_CONFIG
+from config import MODEL_CONFIG, FOCUS_CONFIG, FINETUNE_CONFIG, PATHS, FLOW_CONFIG, TARGET_SEQUENCE_LENGTH
 from model.rmkv import RMKVModel
 from data.tokenizer import RemarkableTokenizer
 from transformers import get_cosine_schedule_with_warmup
@@ -958,11 +958,11 @@ def main(mode="pretrain"):
             tokenizer,
             source="fineweb",  # can later add interleaving here too
             segment_len=config["max_segment_len"],
-            segments_per_sample=8
+            segments_per_sample=int(TARGET_SEQUENCE_LENGTH / config["max_segment_len"]),
         )
         dataloader = DataLoader(dataset, batch_size=config["batch_size"])
     else:
-        dataset = InterleaveDataset(tokenizer, False, MODEL_CONFIG["max_seq_len"], weights=(0, 2, 1))
+        dataset = InterleaveDataset(tokenizer, False, TARGET_SEQUENCE_LENGTH, weights=(0, 2, 1))
         dataloader = DataLoader(dataset, batch_size=config["batch_size"])
 
     # === Start training ===
