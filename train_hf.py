@@ -14,7 +14,8 @@ import argparse
 import torch
 from torch.utils.data import DataLoader, IterableDataset
 from datasets import load_dataset
-from config import MODEL_CONFIG, FOCUS_CONFIG, FINETUNE_CONFIG, PATHS, FLOW_CONFIG, TARGET_SEQUENCE_LENGTH
+from config import MODEL_CONFIG, FOCUS_CONFIG, FINETUNE_CONFIG, PATHS, FLOW_CONFIG, FINAL_TARGET_SEQUENCE_LENGTH, \
+    FLOW_TARGET_SEQUENCE_LENGTH
 from model.rmkv import RMKVModel
 from data.tokenizer import RemarkableTokenizer
 from transformers import get_cosine_schedule_with_warmup
@@ -197,7 +198,7 @@ class FinewebIterator:
     def __init__(self, tokenizer, max_length):
         self.tokenizer = tokenizer
         self.max_length = max_length
-        self.dataset = load_dataset("HuggingFaceFW/fineweb", name="CC-MAIN-2024-51", split="train", streaming=True)
+        self.dataset = load_dataset("HuggingFaceFW/fineweb", name="sample-10BT", split="train", streaming=True)
         self.iterator = iter(self.dataset)
 
     def __iter__(self):
@@ -376,7 +377,7 @@ class InterleaveDataset(IterableDataset):
         enabling infinite streaming for long training runs.
     """
 
-    def __init__(self, tokenizer, for_pretraining, max_length, weights=(5, 1, 1)):
+    def __init__(self, tokenizer, for_pretraining, max_length, weights=(5, 1)):
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.weights = weights
@@ -384,7 +385,6 @@ class InterleaveDataset(IterableDataset):
         self.iterators = [
             FinewebIterator(tokenizer, max_length),
             ReasoningIterator(tokenizer, self.for_pretraining, max_length),
-            NemotronIterator(tokenizer, self.for_pretraining, max_length)
         ]
         self.probs = [w / sum(weights) for w in weights]
 
@@ -425,7 +425,7 @@ def evaluate(model, tokenizer, device, mode, max_samples=50):
     model.eval()
     with torch.no_grad():
         if mode == "pretrain":
-            dataset = load_dataset("HuggingFaceFW/fineweb", name="CC-MAIN-2024-51", split="train", streaming=True)
+            dataset = load_dataset("HuggingFaceFW/fineweb", name="sample-10BT", split="train", streaming=True)
             stream = (s for s in dataset if s.get("text"))
             texts = [next(stream)["text"] for _ in range(max_samples)]
         else:
@@ -488,6 +488,18 @@ def trimmed_mean(times: deque, trim_ratio=0.125):
         trimmed_times = sorted_times[trim_count:n - trim_count]
 
     return sum(trimmed_times) / len(trimmed_times)
+
+
+def format_eta(eta):
+    if not eta:
+        return "--"
+    days, remainder = divmod(int(eta), 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    if days > 0:
+        return f"{days}d {hours:02}:{minutes:02}:{seconds:02}"
+    else:
+        return f"{hours:02}:{minutes:02}:{seconds:02}"
 
 
 # -------------------------
@@ -567,6 +579,8 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
                     # Save memory snapshot before it gets updated
                     if memory is not None:
                         memory_trace.append(memory.detach())
+                        if len(memory_trace) > 2:
+                            memory_trace.pop(0)
 
                     logits, memory = model.generate_step(inputs, memory, input_mask)
 
@@ -578,54 +592,55 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
 
                 loss = batch_loss / S
 
-                # -----------------------------------------------------------------
-                # 🔀 Contrastive Memory Discrimination Loss (only if enough steps)
-                # -----------------------------------------------------------------
-                contrastive_loss_weight = 0.1
-                if len(memory_trace) >= 2:
-                    anchor = memory_trace[-1].mean(dim=1)  # [B, D]
-                    positive = memory_trace[-2].mean(dim=1)  # [B, D]
-                    negative = anchor[torch.randperm(B)]  # [B, D] — shuffled anchors
+                # sadly, this is slow, and we have a LOT of data to look at.
+                # so, only do contrastive learning and ablation every 5 steps.
+                if step % 5 == 0:
+                    # Contrastive memory discrimination
+                    contrastive_loss_weight = 0.1
+                    if len(memory_trace) >= 2:
+                        anchor = memory_trace[-1].mean(dim=1)  # [B, D]
+                        positive = memory_trace[-2].mean(dim=1)  # [B, D]
+                        negative = anchor[torch.randperm(B)]  # [B, D] — shuffled anchors
 
-                    anchor = F.normalize(anchor, dim=-1)
-                    positive = F.normalize(positive, dim=-1)
-                    negative = F.normalize(negative, dim=-1)
+                        anchor = F.normalize(anchor, dim=-1)
+                        positive = F.normalize(positive, dim=-1)
+                        negative = F.normalize(negative, dim=-1)
 
-                    sim_pos = (anchor * positive).sum(dim=-1)  # [B]
-                    sim_neg = (anchor * negative).sum(dim=-1)  # [B]
-                    logits_contrast = torch.stack([sim_pos, sim_neg], dim=1)  # [B, 2]
-                    targets_contrast = torch.zeros(B, dtype=torch.long, device=anchor.device)
+                        sim_pos = (anchor * positive).sum(dim=-1)  # [B]
+                        sim_neg = (anchor * negative).sum(dim=-1)  # [B]
+                        logits_contrast = torch.stack([sim_pos, sim_neg], dim=1)  # [B, 2]
+                        targets_contrast = torch.zeros(B, dtype=torch.long, device=anchor.device)
 
-                    contrastive_loss = F.cross_entropy(logits_contrast, targets_contrast)
-                    loss = loss + contrastive_loss_weight * contrastive_loss
+                        contrastive_loss = F.cross_entropy(logits_contrast, targets_contrast)
+                        loss += contrastive_loss_weight * contrastive_loss
 
-                if len(memory_trace) > 0:
-                    # Get the same final segment as used normally
-                    segment = input_ids[:, -1]  # [B, L]
-                    mask = attention_mask[:, -1]  # [B, L]
-                    inputs = segment[:, :-1]
-                    labels = segment[:, 1:]
-                    input_mask = mask[:, :-1]
+                    if len(memory_trace) > 0:
+                        # Get the same final segment as used normally
+                        segment = input_ids[:, -1]  # [B, L]
+                        mask = attention_mask[:, -1]  # [B, L]
+                        inputs = segment[:, :-1]
+                        labels = segment[:, 1:]
+                        input_mask = mask[:, :-1]
 
-                    with torch.no_grad():
-                        # Use zeroed memory (same shape, zeros)
-                        # dummy_memory = torch.zeros_like(memory_trace[-1])
-                        dummy_memory = memory_trace[-1][torch.randperm(B)]
+                        with torch.no_grad():
+                            # Use zeroed memory (same shape, zeros)
+                            # dummy_memory = torch.zeros_like(memory_trace[-1])
+                            dummy_memory = memory_trace[-1][torch.randperm(B)]
 
-                        logits_ablation, _ = model.generate_step(inputs, dummy_memory, input_mask)
+                            logits_ablation, _ = model.generate_step(inputs, dummy_memory, input_mask)
 
-                        active_loss = input_mask.reshape(-1) >= 0
-                        logits_ablation = logits_ablation.reshape(-1, logits_ablation.size(-1))[active_loss]
-                        labels_ablation = labels.reshape(-1)[active_loss]
+                            active_loss = input_mask.reshape(-1) >= 0
+                            logits_ablation = logits_ablation.reshape(-1, logits_ablation.size(-1))[active_loss]
+                            labels_ablation = labels.reshape(-1)[active_loss]
 
-                        loss_ablation = loss_fn(logits_ablation, labels_ablation)
+                            loss_ablation = loss_fn(logits_ablation, labels_ablation)
 
-                        # Measure how much worse the model gets without memory
-                        memory_effect = (loss - loss_ablation).item()
-                        # print(f"[Memory Dependency] ΔLoss w/o memory: {memory_effect:.4f}")
-                        recent_delta_loss_without_memory.append(memory_effect)
-                    weak_penalty_weight = 0.00001
-                    loss = loss + weak_penalty_weight * memory_effect
+                            # Measure how much worse the model gets without memory
+                            memory_effect = (loss - loss_ablation).item()
+                            # print(f"[Memory Dependency] ΔLoss w/o memory: {memory_effect:.4f}")
+                            recent_delta_loss_without_memory.append(memory_effect)
+                        weak_penalty_weight = 0.00001
+                        loss = loss + weak_penalty_weight * memory_effect
 
 
             elif mode == "finetune":
@@ -656,7 +671,8 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
 
                     if memory is not None:
                         memory_trace.append(memory.detach())
-
+                        if len(memory_trace) > 2:
+                            memory_trace.pop(0)
                     logits, memory = model.generate_step(segment_input, memory, segment_attention)
 
                     # Save the last segment seen
@@ -732,7 +748,7 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
                             recent_delta_loss_without_memory.append(memory_effect)
 
                     weak_penalty_weight = 0.00001
-                    loss = loss + weak_penalty_weight * memory_effect
+                    loss += weak_penalty_weight * memory_effect
             else:
                 inputs = batch["input_ids"].to(device)
                 labels = inputs.clone()
@@ -758,15 +774,14 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
 
             total_loss += loss.item()
             avg_loss = total_loss / (step + 1)
-            current_step_time = time.time() - step_start
-            recent_times.append(current_step_time)
+            recent_times.append(time.time() - step_start)
             if step > 10 and max_steps_from_config:
                 avg_recent_time = trimmed_mean(recent_times, trim_ratio=0.2)
                 steps_remaining = max_steps_from_config - step
                 eta = steps_remaining * avg_recent_time
             else:
                 eta = 0
-            eta_str = time.strftime('%H:%M:%S', time.gmtime(eta)) if eta else "--"
+            eta_str = format_eta(eta)
 
             if len(recent_delta_loss_without_memory) == 0:
                 avg_delta_loss_without_memory = 0
@@ -778,8 +793,7 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
                               "memory effect": f"{avg_delta_loss_without_memory:.4f}"})
 
             if step % 1000 == 0 and step > 0:
-                log_path = os.path.join(PATHS["logs_dir"], f"{mode}_step.log")
-                with open(log_path, "w") as f:
+                with open(os.path.join(PATHS["logs_dir"], f"{mode}_step.log"), "w") as f:
                     f.write(f"Step {step} loss: {avg_loss:.4f}\n")
 
             if step % 5000 == 0 and step > 0:
@@ -798,7 +812,7 @@ class SegmentedDataset(IterableDataset):
 
         if source == "fineweb":
             self.stream = iter(
-                load_dataset("HuggingFaceFW/fineweb", name="CC-MAIN-2024-51", split="train", streaming=True))
+                load_dataset("HuggingFaceFW/fineweb", name="sample-10BT", split="train", streaming=True))
         elif source == "reasoning":
             self.stream = iter(load_dataset("glaiveai/reasoning-v1-20m", split="train"))
         else:
@@ -951,18 +965,18 @@ def main(mode="pretrain"):
 
     # === Dataset and Dataloader setup ===
     if is_focus:
-        dataset = InterleaveDataset(tokenizer, True, MODEL_CONFIG["max_seq_len"], weights=(5, 1, 1))
+        dataset = InterleaveDataset(tokenizer, True, MODEL_CONFIG["max_seq_len"], weights=(5, 1))
         dataloader = DataLoader(dataset, batch_size=config["batch_size"])
     elif is_flow:
         dataset = SegmentedDataset(
             tokenizer,
             source="fineweb",  # can later add interleaving here too
             segment_len=config["max_segment_len"],
-            segments_per_sample=int(TARGET_SEQUENCE_LENGTH / config["max_segment_len"]),
+            segments_per_sample=int(FLOW_TARGET_SEQUENCE_LENGTH / config["max_segment_len"]),
         )
         dataloader = DataLoader(dataset, batch_size=config["batch_size"])
     else:
-        dataset = InterleaveDataset(tokenizer, False, TARGET_SEQUENCE_LENGTH, weights=(0, 2, 1))
+        dataset = InterleaveDataset(tokenizer, False, FINAL_TARGET_SEQUENCE_LENGTH, weights=(0, 1))
         dataloader = DataLoader(dataset, batch_size=config["batch_size"])
 
     # === Start training ===

@@ -68,7 +68,7 @@ def main():
 
             # Load datasets once
             print("Initializing datasets...")
-            self.fineweb_dataset = load_dataset("HuggingFaceFW/fineweb", name="CC-MAIN-2024-51",
+            self.fineweb_dataset = load_dataset("HuggingFaceFW/fineweb", name="sample-100BT",
                                                 split="train", streaming=True)
             self.fineweb_iter = iter(self.fineweb_dataset)
 

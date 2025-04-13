@@ -2,7 +2,8 @@
 
 import os
 
-TARGET_SEQUENCE_LENGTH = 4096
+FINAL_TARGET_SEQUENCE_LENGTH = 4096
+FLOW_TARGET_SEQUENCE_LENGTH = 1024
 
 # === Model Configuration for RMKV Architecture ===
 MODEL_CONFIG = {
@@ -26,25 +27,23 @@ FOCUS_CONFIG = {
     "gradient_accumulation_steps": 4,  # Simulate larger batch sizes
     "warmup_steps": 1000,  # Number of warmup steps for the learning rate scheduler
     "max_grad_norm": 1.0,  # For gradient clipping
-    "fp16": True,  # Enable mixed precision training
     "max_segment_len": 256,  # Maximum sequence length per segment for phase 2 training
     "seed": 42,
 }
 
 # fineweb dec 31 2024 is 131b tokens
-# reading is 22 million entries -- lets guess at least 1000 tokens each, so at least 22b tokens, but probably more
+# reading is 22 million entries/35.8b tokens
 # nemotron is 15 million entries -- lets guess at least 1000 tokens each, so at least 15b tokens, but probably way more
 # roughly 183 billion tokens (but probably way more)
 FLOW_CONFIG = {
     "learning_rate": 5e-5,
-    "batch_size": 3,
+    "batch_size": 4,
     "weight_decay": 1e-2,
     "num_epochs": 1,  # used for train.py
-    "max_steps": 30000000,  # used for train_hf.py 3 x 2048 x 30m = 6144 x 30m = 184.32b tokens
-    "gradient_accumulation_steps": 4,  # Simulate larger batch sizes
-    "warmup_steps": 1000,  # Number of warmup steps for the learning rate scheduler
+    "max_steps": 2400000,  # used for train_hf.py 1 x 2048 x 90m = 184.32b tokens
+    "gradient_accumulation_steps": 6,  # Simulate larger batch sizes
+    "warmup_steps": 2000,  # Number of warmup steps for the learning rate scheduler
     "max_grad_norm": 1.0,  # For gradient clipping
-    "fp16": True,  # Enable mixed precision training
     "max_segment_len": 256,  # Maximum sequence length per segment for phase 2 training
     "seed": 42,
 }
@@ -59,7 +58,6 @@ FINETUNE_CONFIG = {
     "gradient_accumulation_steps": 4,
     "warmup_steps": 200,  # Fewer warmup steps for fine-tuning
     "max_grad_norm": 0.5,  # Stricter gradient clipping for stability
-    "fp16": True,
     "max_segment_len": 256,  # max segments for fine-tuning
     "seed": 42,
 }
