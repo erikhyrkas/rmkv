@@ -10,6 +10,7 @@
 import os
 from collections import deque
 import argparse
+from itertools import islice
 
 import torch
 from torch.utils.data import DataLoader, IterableDataset
@@ -544,8 +545,21 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
     max_segment_length = config.get("max_segment_len", 256)
     min_segment_length = min(64, int(max_segment_length / 4))
 
+    epochs_to_skip = start_step // max_steps_from_config
+    batches_to_skip = start_step % max_steps_from_config
+
     for epoch in range(config["num_epochs"]):
-        pbar = tqdm(dataloader, desc=f"{mode} Epoch {epoch + 1}", dynamic_ncols=True)
+        if epoch < epochs_to_skip:
+            continue
+        dataloader_iter = iter(dataloader)
+
+        if batches_to_skip > 0:
+            dataloader_iter = islice(dataloader_iter, batches_to_skip, None)
+            pbar = tqdm(dataloader_iter, desc=f"{mode} Epoch {epoch + 1}", dynamic_ncols=True, initial=start_step)
+            batches_to_skip = 0
+        else:
+            pbar = tqdm(dataloader_iter, desc=f"{mode} Epoch {epoch + 1}", dynamic_ncols=True, initial=step)
+
         total_loss = 0
         for batch in pbar:
             step_start = time.time()
