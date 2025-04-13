@@ -50,7 +50,7 @@ FINETUNE_CONFIG = {
     "learning_rate": 5e-5,  # Lower learning rate for fine-tuning
     "batch_size": 4,  # Smaller batch size for more precise updates
     "weight_decay": 1e-2,
-    "max_steps": 1000000,  # 1m steps = about 16.3b tokens. possible steps: ~(22 million reasoning + 15 million nemotron) / 4 batch size = 9,250,000 steps to touch whole dataset
+    "max_steps": 9250000,  # 9.25m steps = about 151.552b tokens, but there is padding. possible steps: ~(22 million reasoning + 15 million nemotron) / 4 batch size = 9,250,000 steps to touch whole dataset
     "num_epochs": 1,  # Fewer epochs for fine-tuning
     "gradient_accumulation_steps": 4,
     "warmup_steps": 200,  # Fewer warmup steps for fine-tuning
