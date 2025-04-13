@@ -199,7 +199,7 @@ class FinewebIterator:
     def __init__(self, tokenizer, max_length):
         self.tokenizer = tokenizer
         self.max_length = max_length
-        self.dataset = load_dataset("HuggingFaceFW/fineweb", name="sample-10BT", split="train", streaming=True)
+        self.dataset = load_dataset("HuggingFaceFW/fineweb", name="sample-10BT", split="train")  # , streaming=True)
         self.iterator = iter(self.dataset)
 
     def __iter__(self):
@@ -426,7 +426,7 @@ def evaluate(model, tokenizer, device, mode, max_samples=50):
     model.eval()
     with torch.no_grad():
         if mode == "pretrain":
-            dataset = load_dataset("HuggingFaceFW/fineweb", name="sample-10BT", split="train", streaming=True)
+            dataset = load_dataset("HuggingFaceFW/fineweb", name="sample-10BT", split="train")  # , streaming=True)
             stream = (s for s in dataset if s.get("text"))
             texts = [next(stream)["text"] for _ in range(max_samples)]
         else:
@@ -554,9 +554,12 @@ def train(model: RMKVModel, dataloader, optimizer, scheduler, device, config, pa
         dataloader_iter = iter(dataloader)
 
         if batches_to_skip > 0:
+            print(f"Fast forwarding to step {batches_to_skip}")
             dataloader_iter = islice(dataloader_iter, batches_to_skip, None)
             pbar = tqdm(dataloader_iter, desc=f"{mode} Epoch {epoch + 1}", dynamic_ncols=True, initial=start_step)
             batches_to_skip = 0
+            print(
+                f"This may take awhile to fast-forward through steps. If it's not done in 5 minutes, just wait longer.")
         else:
             pbar = tqdm(dataloader_iter, desc=f"{mode} Epoch {epoch + 1}", dynamic_ncols=True, initial=step)
 
@@ -822,7 +825,7 @@ class SegmentedDataset(IterableDataset):
 
         if source == "fineweb":
             self.stream = iter(
-                load_dataset("HuggingFaceFW/fineweb", name="sample-10BT", split="train", streaming=True))
+                load_dataset("HuggingFaceFW/fineweb", name="sample-10BT", split="train"))  # , streaming=True))
         elif source == "reasoning":
             self.stream = iter(load_dataset("glaiveai/reasoning-v1-20m", split="train"))
         else:
@@ -839,7 +842,8 @@ class SegmentedDataset(IterableDataset):
                 text = row.get("text", row.get("prompt", "") + " " + row.get("response", ""))
                 t = self.tokenizer.encode(text.strip())
                 tokens.extend(t)
-            except Exception:
+            except Exception as e:
+                print(f"Skipping row because of {e}")
                 continue  # skip bad rows
 
         chunks = [tokens[i:i + self.segment_len] for i in range(0, len(tokens), self.segment_len)]
