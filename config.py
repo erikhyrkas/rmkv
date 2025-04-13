@@ -22,7 +22,7 @@ FOCUS_CONFIG = {
     "batch_size": 8,
     "weight_decay": 1e-2,
     "num_epochs": 1,  # used for train.py
-    "max_steps": 50000,  # used for train_hf.py -- originally 30000
+    "max_steps": 50000,  # used for train_hf.py 8 x 256 x 50k = 102.4m tokens
     "gradient_accumulation_steps": 4,  # Simulate larger batch sizes
     "warmup_steps": 1000,  # Number of warmup steps for the learning rate scheduler
     "max_grad_norm": 1.0,  # For gradient clipping
@@ -36,7 +36,7 @@ FLOW_CONFIG = {
     "batch_size": 3,
     "weight_decay": 1e-2,
     "num_epochs": 1,  # used for train.py
-    "max_steps": 4000000,  # used for train_hf.py -- originally 30000
+    "max_steps": 4000000,  # used for train_hf.py 3 x 2048 x 4m = 6144 x 4m = 24.576b tokens
     "gradient_accumulation_steps": 4,  # Simulate larger batch sizes
     "warmup_steps": 1000,  # Number of warmup steps for the learning rate scheduler
     "max_grad_norm": 1.0,  # For gradient clipping
@@ -50,7 +50,7 @@ FINETUNE_CONFIG = {
     "learning_rate": 5e-5,  # Lower learning rate for fine-tuning
     "batch_size": 4,  # Smaller batch size for more precise updates
     "weight_decay": 1e-2,
-    "max_steps": 1000000,  # ~(22 million reasoning + 15 million nemotron) / 4 batch size = 9,250,000
+    "max_steps": 1000000,  # 1m steps = about 16.3b tokens. possible steps: ~(22 million reasoning + 15 million nemotron) / 4 batch size = 9,250,000 steps to touch whole dataset
     "num_epochs": 1,  # Fewer epochs for fine-tuning
     "gradient_accumulation_steps": 4,
     "warmup_steps": 200,  # Fewer warmup steps for fine-tuning
